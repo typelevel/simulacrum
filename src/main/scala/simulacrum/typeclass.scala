@@ -42,7 +42,7 @@ object TypeClassMacros {
       }
     }
 
-    def adaptMethodForAppliedType(tparamName: Name, method: DefDef): Option[DefDef] = {
+    def adaptMethodForAppliedType(tparamName: Name, method: DefDef, liftedTypeArgName: TypeName): Option[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // is an F[X] for some (potentially applied) type X
       val TargetTypeName = tparamName
@@ -54,20 +54,21 @@ object TypeClassMacros {
         arg match {
           // If arg == Ident(TypeName("...")), method can be lifted directly
           case Ident(simpleArg) =>
+            // Rewrites all occurrences of simpleArg to liftedTypeArgName
+            val SimpleArg = simpleArg
+            def rewrite(t: Tree): Tree = t match {
+              case Ident(SimpleArg) => Ident(liftedTypeArgName)
+              case AppliedTypeTree(x, ys) => AppliedTypeTree(rewrite(x), ys map { y => rewrite(y) })
+              // TODO This is woefully incomplete - no attempt is made at rewriting the types of trees that appear in rhs
+              case other => other
+            }
+
             val paramssFixed = {
               val withoutFirst = {
                 if (firstParamList.tail.isEmpty) method.vparamss.tail
                 else firstParamList.tail :: method.vparamss.tail
               }
               withoutFirst map { _ map { param =>
-                // Rewrite all occurrences of simpleArg to $A
-                val SimpleArg = simpleArg
-                def rewrite(t: Tree): Tree = t match {
-                  case Ident(SimpleArg) => Ident(TypeName("$A"))
-                  case AppliedTypeTree(x, ys) => AppliedTypeTree(rewrite(x), ys map { y => rewrite(y) })
-                  // TODO This is woefully incomplete - no attempt is made at rewriting the types of trees that appear in rhs
-                  case other => other
-                }
                 ValDef(param.mods, param.name, rewrite(param.tpt), rewrite(param.rhs))
               }}
             }
@@ -83,7 +84,7 @@ object TypeClassMacros {
 
             val fixedTParams = method.tparams.filter { _.name != simpleArg }
 
-            val adapted = DefDef(Modifiers(Flag.FINAL), method.name, fixedTParams, paramssFixed, method.tpt, rhs)
+            val adapted = DefDef(Modifiers(Flag.FINAL), method.name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
             adapted
 
           case AppliedTypeTree(g, a) =>
@@ -95,20 +96,21 @@ object TypeClassMacros {
       }
     }
 
-    def adaptMethods(typeClass: ClassDef, tparamName: Name, proper: Boolean): List[DefDef] = {
+    def adaptMethods(typeClass: ClassDef, tparamName: Name, proper: Boolean, liftedTypeArgName: TypeName): List[DefDef] = {
       val typeClassMethods = typeClass.impl.children.collect {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
       }
       typeClassMethods.flatMap { method =>
         trace(s"Adapting method as syntax for a $tparamName: ${method.mods} ${method.name}")
-        val adapted = if (proper) adaptMethodForProperType(tparamName, method) else adaptMethodForAppliedType(tparamName, method)
+        val adapted = if (proper) adaptMethodForProperType(tparamName, method) else adaptMethodForAppliedType(tparamName, method, liftedTypeArgName)
         trace(s"Adapted to: $adapted")
         adapted
       }
     }
 
-    def generateAdapter(typeClass: ClassDef, tparamName: TypeName, proper: Boolean) = {
-      val adaptedMethods = adaptMethods(typeClass, tparamName, proper)
+    def generateAdapter(typeClass: ClassDef, tparam: TypeDef, proper: Boolean) = {
+      val liftedTypeArgName = TypeName(c.freshName())
+      val adaptedMethods = adaptMethods(typeClass, tparam.name, proper, liftedTypeArgName)
       val adapterBases: List[Tree] = {
         typeClass.impl.parents.flatMap {
           case AppliedTypeTree(Ident(TypeName(parentTypeClassName)), arg :: Nil) =>
@@ -117,17 +119,17 @@ object TypeClassMacros {
         }
       }
       if (proper) {
-        q"""trait Adapter[${tparamName}] extends ..${adapterBases} {
-          def typeClass: ${typeClass.name}[${tparamName}]
-          def self: ${tparamName}
+        q"""trait Adapter[${tparam}] extends ..${adapterBases} {
+          def typeClass: ${typeClass.name}[${tparam.name}]
+          def self: ${tparam.name}
           ..$adaptedMethods
 
         }"""
       } else {
         q"""
-        trait Adapter[${tparamName}[_], $$A] {
-          def typeClass: ${typeClass.name}[${tparamName}]
-          def self: ${tparamName}[$$A]
+        trait Adapter[${tparam}, $liftedTypeArgName] {
+          def typeClass: ${typeClass.name}[${tparam.name}]
+          def self: ${tparam.name}[$liftedTypeArgName]
           ..$adaptedMethods
         }"""
       }
@@ -137,13 +139,16 @@ object TypeClassMacros {
 
       val summoner = q"def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
-      val adapter = generateAdapter(typeClass, tparam.name, proper)
+      val adapter = generateAdapter(typeClass, tparam, proper)
 
       val adapterConversion = {
         if (proper) {
-          q"implicit def Adapter[A](a: A)(implicit tc: ${typeClass.name}[A]): Adapter[A] = new Adapter[A] { val self = a; val typeClass = tc }"
+          // Generate an implicit conversion from A to Adapter[A]
+          q"implicit def Adapter[$tparam](target: ${tparam.name})(implicit tc: ${typeClass.name}[${tparam.name}]): Adapter[${tparam.name}] = new Adapter[${tparam.name}] { val self = target; val typeClass = tc }"
         } else {
-          q"implicit def Adapter[F[_], A](fa: F[A])(implicit tc: ${typeClass.name}[F]): Adapter[F, A] = new Adapter[F, A] { val self = fa; val typeClass = tc }"
+          // Generate an implicit conversion from F[A] to Adapter[F, A]
+          val typeArg = TypeName(c.freshName())
+          q"implicit def Adapter[$tparam, $typeArg](target: ${tparam.name}[$typeArg])(implicit tc: ${typeClass.name}[${tparam.name}]): Adapter[${tparam.name}, $typeArg] = new Adapter[${tparam.name}, $typeArg] { val self = target; val typeClass = tc }"
         }
       }
 

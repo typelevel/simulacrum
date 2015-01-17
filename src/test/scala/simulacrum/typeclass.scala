@@ -54,6 +54,16 @@ class TypeClassTest extends WordSpec with Matchers {
         Sg[Int].op(1, 2) shouldBe 3
         Sg.foo shouldBe 1
       }
+
+      "supports type bounds on type class type param" in {
+        trait Upper
+        trait Lower extends Upper
+        trait Mixin[Y]
+        @typeclass trait Sub[X <: Upper] { def id(x: X): X = x }
+        @typeclass trait Sup[X >: Lower] { def id(x: X): X = x }
+        @typeclass trait Both[X >: Lower <: Upper] { def id(x: X): X = x }
+        @typeclass trait Lots[X >: Lower with Mixin[Int] <: Upper] { def id(x: X): X = x }
+      }
     }
 
     "support type classes that are polymorphic over a type constructor," which {
@@ -90,6 +100,16 @@ class TypeClassTest extends WordSpec with Matchers {
         }
         Monad[List].flatMap(List(1, 2))(x => List(x, x)) shouldBe List(1, 1, 2, 2)
         Monad.Adapter(List(1, 2)).flatMap { x => List(x, x) } shouldBe List(1, 1, 2, 2)
+      }
+
+      "supports type bounds on type class type param" in {
+        trait Upper
+        trait Lower extends Upper
+        trait Mixin[Y]
+        @typeclass trait Sub[F[_] <: Upper] { def id[A](x: F[A]): F[A] = x }
+        @typeclass trait Sup[G[_] >: Lower] { def id[B](x: G[B]): G[B] = x }
+        @typeclass trait Both[H[_] >: Lower <: Upper] { def id[B](x: H[B]): H[B] = x }
+        @typeclass trait Lots[I[_] >: Lower with Mixin[Int] <: Upper] { def id[B](x: I[B]): I[B] = x }
       }
     }
   }
