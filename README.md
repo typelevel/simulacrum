@@ -30,7 +30,7 @@ object Semigroup {
 }
 ```
 
-This isn't exactly what's generated -- for instance, the `Adapter` class is really generated as a trait to support various subtyping cases.
+This isn't exactly what's generated -- for instance, the `Adapter` class is really generated as a trait to support various subtyping cases. Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`.
 
 This allows usage like:
 
