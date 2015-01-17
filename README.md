@@ -50,7 +50,7 @@ resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/publi
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
 
-libraryDepdencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0-SNAPSHOT"
 ```
 
 Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containg feedback. Also, see the [TODO.md](TODO.md) file for near term improvements.
