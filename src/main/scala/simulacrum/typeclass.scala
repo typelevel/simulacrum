@@ -12,7 +12,7 @@ object TypeClassMacros {
   def generateTypeClass(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
-    def trace(s: => String) = println(s)
+    def trace(s: => String) = () //println(s)
 
     def adaptMethodForProperType(tparamName: Name, method: DefDef): Option[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
@@ -149,24 +149,6 @@ object TypeClassMacros {
 
       val lowerTypeClassName = TermName(typeClass.name.toString.updated(0, typeClass.name.toString.charAt(0).toLower))
 
-      val adapterConverter = {
-        if (proper) {
-          q"""
-            implicit class AdapterConverter[A](a: A)(implicit tc: ${typeClass.name}[A]) {
-              def ${lowerTypeClassName}: Adapter[A] = Adapter(a)
-            }
-          """
-        } else {
-          q"""
-            implicit class AdapterConverter[F[_], A](fa: F[A])(implicit tc: ${typeClass.name}[F]) {
-              def ${lowerTypeClassName}: Adapter[F, A] = Adapter(fa)
-            }
-          """
-        }
-      }
-
-      trace(adapterConverter.toString)
-
       val q"object $name extends ..$bases { ..$body }" = comp
       q"""
         object $name extends ..$bases {
@@ -174,7 +156,6 @@ object TypeClassMacros {
           $summoner
           $adapter
           $adapterConversion
-          $adapterConverter
         }
       """
     }

@@ -27,13 +27,6 @@ class TypeClassTest extends WordSpec with Matchers {
         1 appendCurried 2 shouldBe 3
       }
 
-      "generates object oriented style forwarding methods via converter pattern" in {
-        "1 append 2 shouldBe 3" shouldNot compile
-        import Semigroup.AdapterConverter
-        1.semigroup append 2 shouldBe 3
-        1.semigroup appendCurried 2 shouldBe 3
-      }
-
       "supports type class inheritance" in {
         @typeclass trait Monoid[X] extends Semigroup[X] {
           def id: X
@@ -83,12 +76,6 @@ class TypeClassTest extends WordSpec with Matchers {
         "List(1, 2, 3).as(0) shouldBe List(0, 0, 0)" shouldNot compile
         import Functor.Adapter
         List(1, 2, 3).as(0) shouldBe List(0, 0, 0)
-      }
-
-      "generates object oriented style forwarding methods via converter pattern" in {
-        "List(1, 2, 3).functor.as(0) shouldBe List(0, 0, 0)" shouldNot compile
-        import Functor.AdapterConverter
-        List(1, 2, 3).functor.as(0) shouldBe List(0, 0, 0)
       }
 
       "supports type class inheritance" in {
