@@ -32,7 +32,7 @@ object Semigroup {
 }
 ```
 
-This isn't exactly what's generated -- for instance, the `Adapter` class is really generated as a trait to support various subtyping cases. Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`.
+This isn't exactly what's generated -- for instance, the `Adapter` class is really generated as a trait to support various subtyping cases. Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`. The current implementation only supports unary type constructors, but support for binary type constructors is planned.
 
 This allows usage like:
 
@@ -55,4 +55,7 @@ addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.fu
 libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0-SNAPSHOT"
 ```
 
+Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.
+
 Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containg feedback. Also, see the [TODO.md](TODO.md) file for near term improvements.
+
