@@ -61,7 +61,7 @@ Macro paradise must exist in projects which use `@typeclass`, but code that depe
 
 Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containg feedback. Also, see the [TODO.md](TODO.md) file for near term improvements.
 
-== Known Limitations
+## Known Limitations
 
  - With type constructor based type classes, methods are only generated on the adapter class when the first argument has shape `F[A]`, where `A` is a type parameter of the method. More complicated shapes are not currently supported (e.g., `F[G[A]]`, where `G[_]` is also a type parameter of the method).
  - When defining a type class as a subtype of another type class, and defining an abstract member of the super type concretely in the sub type, the `override` keyword must be used. For example, defining `map` in terms of `flatMap` requires `override def map[A, B](...)`.
