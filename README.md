@@ -43,9 +43,12 @@ implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
 import Semigroup.Adapter
 1 |+| 2 // 3
 
-See [the examples](src/test/scala/simulacrum/examples.scala) for more.
 
 ```
+
+See [the examples](src/test/scala/simulacrum/examples.scala) for more.
+
+## Usage
 
 This project currently only supports Scala 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
