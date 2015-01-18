@@ -131,7 +131,7 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Monad[G[_]] extends Functor[G] {
           def pure[A](a: => A): G[A]
           def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
-          def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
+          override def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
         }
         implicit val monadList: Monad[List] = new Monad[List] {
           def pure[A](a: => A) = List(a)
@@ -145,7 +145,7 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Monad[G[_]] extends Functor[G] {
           def pure[A](a: => A): G[A]
           @op(">>=") def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
-          def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
+          override def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
         }
         implicit val monadList: Monad[List] = new Monad[List] {
           def pure[A](a: => A) = List(a)
@@ -161,7 +161,7 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Monad[G[_]] extends Functor[G] {
           def pure[A](a: => A): G[A]
           @op(">>=", alias = true) def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
-          def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
+          override def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
         }
         implicit val monadList: Monad[List] = new Monad[List] {
           def pure[A](a: => A) = List(a)

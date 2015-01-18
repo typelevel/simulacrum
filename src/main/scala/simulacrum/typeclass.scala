@@ -80,7 +80,8 @@ object TypeClassMacros {
           Apply(tree, paramNames)
         }
         name <- determineAdapterMethodName(method)
-      } yield DefDef(Modifiers(Flag.FINAL), name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
+        val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
+      } yield DefDef(fixedMods, name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
     def adaptMethodForAppliedType(tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
@@ -124,9 +125,10 @@ object TypeClassMacros {
             }
 
             val fixedTParams = method.tparams.filter { _.name != simpleArg }
+            val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
 
             determineAdapterMethodName(method) map { name =>
-              DefDef(Modifiers(Flag.FINAL), name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
+              DefDef(fixedMods, name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
             }
 
           case AppliedTypeTree(g, a) =>
@@ -153,7 +155,8 @@ object TypeClassMacros {
       val adapterBases: List[Tree] = {
         typeClass.impl.parents.flatMap {
           case AppliedTypeTree(Ident(TypeName(parentTypeClassName)), arg :: Nil) =>
-            Some(AppliedTypeTree(Select(Ident(TermName(parentTypeClassName)), TypeName("Adapter")), arg :: Nil))
+            val typeArgs = arg :: (if (proper) Nil else List(Ident(liftedTypeArg.get.name)))
+            Some(AppliedTypeTree(Select(Ident(TermName(parentTypeClassName)), TypeName("Adapter")), typeArgs))
           case other => None
         }
       }
@@ -166,7 +169,7 @@ object TypeClassMacros {
         }"""
       } else {
         q"""
-        trait Adapter[${tparam}, ${liftedTypeArg.get}] {
+        trait Adapter[${tparam}, ${liftedTypeArg.get}] extends ..${adapterBases} {
           def typeClass: ${typeClass.name}[${tparam.name}]
           def self: ${tparam.name}[${liftedTypeArg.get.name}]
           ..$adaptedMethods
