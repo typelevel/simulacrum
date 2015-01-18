@@ -110,6 +110,7 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Sup[G[_] >: Lower] { def id[B](x: G[B]): G[B] = x }
         @typeclass trait Both[H[_] >: Lower <: Upper] { def id[B](x: H[B]): H[B] = x }
         @typeclass trait Lots[I[_] >: Lower with Mixin[Int] <: Upper] { def id[B](x: I[B]): I[B] = x }
+        @typeclass trait TypeConstructorBounded[F[_ >: Lower <: Upper]] { def id[A >: Lower <: Upper](x: F[A]): F[A] = x }
       }
     }
   }
