@@ -26,7 +26,6 @@ object Semigroup {
   implicit def apply[A](implicit tc: Semigroup[A]): Semigroup[A] = tc
 
   implicit class Adapter[A](val self: A)(implicit val typeClass: Semigroup[A]) {
-    def append(y: A): A = typeClass.append(self, y)
     def |+|(y: A): A = typeClass.append(self, y)
   }
 }

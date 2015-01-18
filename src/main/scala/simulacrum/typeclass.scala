@@ -4,8 +4,29 @@ import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
 
+/**
+ * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
+ *
+ * Doing so changes the code generation strategy used when generating the syntax adapter type.
+ * Instead of the type class method name being used, the name specified on this annotation is used.
+ * If `alias` is true, two methods are generated, one with the original name and one with the
+ * specified name.
+ */
 class op(name: String, alias: Boolean = false) extends StaticAnnotation
 
+/**
+ * Annotation that may be applied to a trait or class of one type parameter to generate
+ * boilerplate that makes the type class easier to use.
+ *
+ * The only type parameter must either by a proper type or a unary type constructor.
+ * Types of other shapes, like binary type constructors, are not currently supported.
+ *
+ * As a result of adding this annotation, the following code is generated in the companion:
+ *  - an implicit summoning method, providing syntax like `MyTypeClass[Type]` as a
+ *    shortcut for `implicitly[MyTypeClass[Type]]`.
+ *  - an implicit class, named `Adapter`, which provides object oriented style
+ *    forwarding methods -- aka, syntax.
+ */
 class typeclass extends StaticAnnotation {
   def macroTransform(annottees: Any*) = macro TypeClassMacros.generateTypeClass
 }
