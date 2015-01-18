@@ -4,6 +4,8 @@ import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
 
+class op(name: String, alias: Boolean = false) extends StaticAnnotation
+
 class typeclass extends StaticAnnotation {
   def macroTransform(annottees: Any*) = macro TypeClassMacros.generateTypeClass
 }
@@ -12,44 +14,62 @@ object TypeClassMacros {
   def generateTypeClass(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
-    def trace(s: => String) = println(s)
+    def trace(s: => String) = {
+      // Macro paradise seems to always output info statements, even without -verbose
+      if (sys.props.get("simulacrum.trace").isDefined) c.info(c.enclosingPosition, s, false)
+    }
 
-    def adaptMethodForProperType(tparamName: Name, method: DefDef): Option[DefDef] = {
+    def determineAdapterMethodName(sourceMethod: DefDef): List[TermName] = {
+      val overrides = sourceMethod.mods.annotations.collectFirst {
+        case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) if annotationName == "op" =>
+          val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
+          rest match {
+            case Nil =>
+              List(aliasTermName)
+            case Literal(Constant(alias: Boolean)) :: _ =>
+              if (alias) List(sourceMethod.name, aliasTermName)
+              else List(aliasTermName)
+            case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
+              if (alias) List(sourceMethod.name, aliasTermName)
+              else List(aliasTermName)
+            case other =>
+              List(aliasTermName)
+          }
+      }
+      overrides getOrElse List(sourceMethod.name)
+    }
+
+    def adaptMethodForProperType(tparamName: Name, method: DefDef): List[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // matches `tparamName`
       val TargetTypeName = tparamName
       for {
-        firstParamList <- method.vparamss.headOption
-        firstParam <- firstParamList.headOption
-        Ident(TargetTypeName) <- Option(firstParam.tpt)
-      } yield {
-        val paramssWithoutFirst = {
+        firstParamList <- method.vparamss.headOption.toList
+        firstParam <- firstParamList.headOption.toList
+        Ident(TargetTypeName) <- Option(firstParam.tpt).toList
+        paramssWithoutFirst = {
           if (firstParamList.tail.isEmpty) method.vparamss.tail
           else firstParamList.tail :: method.vparamss.tail
         }
-
-        val paramNamess: List[List[Tree]] = {
+        paramNamess: List[List[Tree]] = {
           val original = method.vparamss map { _ map { p => Ident(p.name) } }
           original.updated(0, original(0).updated(0, Ident(TermName("self"))))
         }
-
-        val rhs = paramNamess.foldLeft(Select(Ident(TermName("typeClass")), method.name): Tree) { (tree, paramNames) =>
+        rhs = paramNamess.foldLeft(Select(Ident(TermName("typeClass")), method.name): Tree) { (tree, paramNames) =>
           Apply(tree, paramNames)
         }
-
-        val adapted = DefDef(Modifiers(Flag.FINAL), method.name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
-        adapted
-      }
+        name <- determineAdapterMethodName(method)
+      } yield DefDef(Modifiers(Flag.FINAL), name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
-    def adaptMethodForAppliedType(tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): Option[DefDef] = {
+    def adaptMethodForAppliedType(tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // is an F[X] for some (potentially applied) type X
       val TargetTypeName = tparamName
-      for {
-        firstParamList <- method.vparamss.headOption
-        firstParam <- firstParamList.headOption
-        AppliedTypeTree(Ident(TargetTypeName), arg :: Nil) <- Option(firstParam.tpt)
+      (for {
+        firstParamList <- method.vparamss.headOption.toList
+        firstParam <- firstParamList.headOption.toList
+        AppliedTypeTree(Ident(TargetTypeName), arg :: Nil) <- Option(firstParam.tpt).toList
       } yield {
         arg match {
           // If arg == Ident(TypeName("...")), method can be lifted directly
@@ -84,16 +104,17 @@ object TypeClassMacros {
 
             val fixedTParams = method.tparams.filter { _.name != simpleArg }
 
-            val adapted = DefDef(Modifiers(Flag.FINAL), method.name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
-            adapted
+            determineAdapterMethodName(method) map { name =>
+              DefDef(Modifiers(Flag.FINAL), name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
+            }
 
           case AppliedTypeTree(g, a) =>
             // We need an additional implicit evidence param
             // E.g., op[G[_], A](F[G[A]], ...) => F[$A].op[G[_], A](...)(implicit ev $A =:= G[A])
             trace(s"Not adapting ${method.name} - adaptation of methods on shape F[G[X]] not supported")
-            method
+            List(method)
         }
-      }
+      }).flatten
     }
 
     def adaptMethods(typeClass: ClassDef, tparamName: Name, proper: Boolean, liftedTypeArg: Option[TypeDef]): List[DefDef] = {
@@ -101,7 +122,6 @@ object TypeClassMacros {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
       }
       typeClassMethods.flatMap { method =>
-        trace(s"Adapting method as syntax for a $tparamName: ${method.mods} ${method.name}")
         val adapted = if (proper) adaptMethodForProperType(tparamName, method) else adaptMethodForAppliedType(tparamName, method, liftedTypeArg.get)
         adapted
       }
@@ -157,7 +177,7 @@ object TypeClassMacros {
       }
 
       val adapter = generateAdapter(typeClass, tparam, proper, liftedTypeArg)
-      trace("Generated adapter class:\n" + adapter)
+      trace(s"Generated adapter class for ${typeClass.name}:\n" + adapter)
 
       val adapterConversion = {
         if (proper) {
@@ -189,9 +209,9 @@ object TypeClassMacros {
           hd.tparams.size match {
             case 0 => (hd, true)
             case 1 => (hd, false)
-            case n => c.abort(typeClass.pos, "@typeclass may only be applied to types that take a single proper type or type constructor")
+            case n => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single proper type or type constructor")
           }
-        case other => c.abort(typeClass.pos, "@typeclass may only be applied to types that take a single type parameter")
+        case other => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
       }
 
       val modifiedTypeClass = typeClass
@@ -210,7 +230,8 @@ object TypeClassMacros {
     annottees.map(_.tree) match {
       case (typeClass: ClassDef) :: Nil => modify(typeClass, None)
       case (typeClass: ClassDef) :: (companion: ModuleDef) :: Nil => modify(typeClass, Some(companion))
-      case other :: Nil => c.abort(other.pos, "@typeclass can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor")
+      case other :: Nil =>
+        c.abort(c.enclosingPosition, "@typeclass can only be applied to traits or abstract classes that take 1 type parameter which is either a proper type or a type constructor")
     }
   }
 }

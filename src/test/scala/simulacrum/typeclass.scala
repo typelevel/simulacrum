@@ -55,6 +55,45 @@ class TypeClassTest extends WordSpec with Matchers {
         Sg.foo shouldBe 1
       }
 
+      "supports changing the name of adapted methods" in {
+        @typeclass trait Sg[A] {
+          @op("|+|") def append(x: A, y: A): A
+        }
+        implicit val sgInt: Sg[Int] = new Sg[Int] {
+          def append(x: Int, y: Int) = x + y
+        }
+
+        import Sg.Adapter
+        1 |+| 2 shouldBe 3
+        "1 append 2" shouldNot compile
+      }
+
+      "supports aliasing the name of adapted methods" in {
+        @typeclass trait Sg[A] {
+          @op("|+|", alias = true) def append(x: A, y: A): A
+        }
+        implicit val sgInt: Sg[Int] = new Sg[Int] {
+          def append(x: Int, y: Int) = x + y
+        }
+
+        import Sg.Adapter
+        1 |+| 2 shouldBe 3
+        1 append 2 shouldBe 3
+      }
+
+      "supports aliasing the name of adapted methods (without named arg)" in {
+        @typeclass trait Sg[A] {
+          @op("|+|", true) def append(x: A, y: A): A
+        }
+        implicit val sgInt: Sg[Int] = new Sg[Int] {
+          def append(x: Int, y: Int) = x + y
+        }
+
+        import Sg.Adapter
+        1 |+| 2 shouldBe 3
+        1 append 2 shouldBe 3
+      }
+
       "supports type bounds on type class type param" in {
         trait Upper
         trait Lower extends Upper
@@ -100,6 +139,38 @@ class TypeClassTest extends WordSpec with Matchers {
         }
         Monad[List].flatMap(List(1, 2))(x => List(x, x)) shouldBe List(1, 1, 2, 2)
         Monad.Adapter(List(1, 2)).flatMap { x => List(x, x) } shouldBe List(1, 1, 2, 2)
+      }
+
+      "supports changing the name of adapted methods" in {
+        @typeclass trait Monad[G[_]] extends Functor[G] {
+          def pure[A](a: => A): G[A]
+          @op(">>=") def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
+          def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
+        }
+        implicit val monadList: Monad[List] = new Monad[List] {
+          def pure[A](a: => A) = List(a)
+          def flatMap[A, B](ga: List[A])(f: A => List[B]): List[B] = ga.flatMap(f)
+        }
+        import Monad.Adapter
+        val twice: Int => List[Int] = x => List(x, x)
+        (List(1, 2, 3) >>= twice) shouldBe List(1, 1, 2, 2, 3, 3)
+        "Monad.Adapter(List(1, 2, 3)) flatMap twice" shouldNot compile
+      }
+
+      "supports aliasing the name of adapted methods" in {
+        @typeclass trait Monad[G[_]] extends Functor[G] {
+          def pure[A](a: => A): G[A]
+          @op(">>=", alias = true) def flatMap[A, B](ga: G[A])(f: A => G[B]): G[B]
+          def map[A, B](ga: G[A])(f: A => B) = flatMap(ga) { a => pure(f(a)) }
+        }
+        implicit val monadList: Monad[List] = new Monad[List] {
+          def pure[A](a: => A) = List(a)
+          def flatMap[A, B](ga: List[A])(f: A => List[B]): List[B] = ga.flatMap(f)
+        }
+        import Monad.Adapter
+        val twice: Int => List[Int] = x => List(x, x)
+        (List(1, 2, 3) >>= twice) shouldBe List(1, 1, 2, 2, 3, 3)
+        Monad.Adapter(List(1, 2, 3)) flatMap twice shouldBe List(1, 1, 2, 2, 3, 3)
       }
 
       "supports type bounds on type class type param" in {
