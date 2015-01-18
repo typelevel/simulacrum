@@ -101,7 +101,6 @@ object TypeClassMacros {
             def rewrite(t: Tree): Tree = t match {
               case Ident(SimpleArg) => Ident(liftedTypeArg.name)
               case AppliedTypeTree(x, ys) => AppliedTypeTree(rewrite(x), ys map { y => rewrite(y) })
-              // TODO This is woefully incomplete - no attempt is made at rewriting the types of trees that appear in rhs
               case other => other
             }
 

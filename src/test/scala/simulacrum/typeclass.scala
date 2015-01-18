@@ -183,6 +183,27 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Lots[I[_] >: Lower with Mixin[Int] <: Upper] { def id[B](x: I[B]): I[B] = x }
         @typeclass trait TypeConstructorBounded[F[_ >: Lower <: Upper]] { def id[A >: Lower <: Upper](x: F[A]): F[A] = x }
       }
+
+      "lifted type argument in method bodies are supported" in {
+        @typeclass trait Monoid[A] { def append(x: A, y: A): A; def id: A }
+        @typeclass trait Foldable[F[_]] {
+          def foldLeft[A, B](fa: F[A])(b: B)(f: (B, A) => B): B
+          def concatenate[A: Monoid](fa: F[A]): A = foldLeft(fa)(Monoid[A].id)((acc, a) => Monoid[A].append(acc, a))
+        }
+        implicit val intMonoid: Monoid[Int] = new Monoid[Int] { def append(x: Int, y: Int) = x + y; def id = 0 }
+        implicit val listFoldable: Foldable[List] = new Foldable[List] {
+          def foldLeft[A, B](fa: List[A])(b: B)(f: (B, A) => B): B = fa.foldLeft(b)(f)
+        }
+        import Foldable.Adapter
+        List(1, 2, 3).concatenate shouldBe 6
+      }
+
+      "lifted type argument in return type is rewritten correctly" in {
+        @typeclass trait Foo[F[_]] { def toEither[A](fa: F[A]): Either[String, A] }
+        implicit val listFoo = new Foo[List] { def toEither[A](fa: List[A]) = if (fa.isEmpty) Left("empty") else Right(fa.head) }
+        import Foo.Adapter
+        Nil.toEither shouldBe Left("empty")
+      }
     }
   }
 }
