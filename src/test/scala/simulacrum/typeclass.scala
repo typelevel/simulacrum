@@ -204,6 +204,20 @@ class TypeClassTest extends WordSpec with Matchers {
         import Foo.Adapter
         Nil.toEither shouldBe Left("empty")
       }
+
+      "supports syntax for an F[G[A]]" in {
+        @typeclass trait Bar[F[_]]
+        @typeclass trait Foo[F[_]] {
+          def foo[G[_], A, B](fa: F[A])(f: A => G[B]): G[F[B]]
+          def bar[G[_]: Bar, A](fa: F[G[A]]): G[F[A]] = foo(fa)(identity)
+        }
+        implicit val barOption: Bar[Option] = new Bar[Option] {}
+        implicit val fooOption: Foo[Option] = new Foo[Option] {
+          def foo[G[_], A, B](fa: Option[A])(f: A => G[B]): G[Option[B]] = null.asInstanceOf[G[Option[B]]]
+        }
+        import Foo.Adapter
+        Option(Option(1)).bar
+      }
     }
   }
 }

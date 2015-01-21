@@ -1,1 +1,3 @@
 - Type classes that are polymorphic over a type constructor currently only have adapter methods generated for methods that start with an `F[A]` where `A` is a simple type. Improve this to support arbitrary shapes (e.g., `F[G[X]]`, `F[G[X, Y]]`, etc.)
+- Consider supporting multiple @op annotations on a method.
+- Consider supporting @noadapt on a method, which disables adaptation

@@ -93,48 +93,73 @@ object TypeClassMacros {
         firstParam <- firstParamList.headOption.toList
         AppliedTypeTree(Ident(TargetTypeName), arg :: Nil) <- Option(firstParam.tpt).toList
       } yield {
-        arg match {
-          // If arg == Ident(TypeName("...")), method can be lifted directly
-          case Ident(simpleArg) =>
+
+        val typeArgs = method.tparams.map { _.name }.toSet
+
+        val simpleArgOpt: Option[Name] = {
+          def extract(tree: Tree): Option[Name] = tree match {
+            case Ident(name: TypeName) if typeArgs contains name => Some(name)
+            case AppliedTypeTree(ctor, targs) =>
+              targs.foldLeft(None: Option[Name]) { (acc, targ) => extract(targ) }
+            case other => None
+          }
+          extract(arg)
+        }
+
+        simpleArgOpt match {
+          case None => Nil
+          case Some(simpleArg) =>
+
             // Rewrites all occurrences of simpleArg to liftedTypeArg.name
             val SimpleArg = simpleArg
             def rewrite(t: Tree): Tree = t match {
               case Ident(SimpleArg) => Ident(liftedTypeArg.name)
               case AppliedTypeTree(x, ys) => AppliedTypeTree(rewrite(x), ys map { y => rewrite(y) })
+              // TODO case CompoundTypeTree
               case other => other
             }
 
-            val paramssFixed = {
+            val (paramssFixed, removeSimpleArgTParam) = {
               val withoutFirst = {
                 if (firstParamList.tail.isEmpty) method.vparamss.tail
                 else firstParamList.tail :: method.vparamss.tail
               }
-              withoutFirst map { _ map { param =>
+              val withRewrittenFirst = withoutFirst map { _ map { param =>
                 ValDef(param.mods, param.name, rewrite(param.tpt), rewrite(param.rhs))
               }}
+              if (arg equalsStructure Ident(simpleArg)) {
+                (withRewrittenFirst, true)
+              } else {
+                val typeEqualityType = AppliedTypeTree(Ident(TypeName("$eq$colon$eq")), List(Ident(liftedTypeArg.name), arg))
+                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), c.freshName(), typeEqualityType, EmptyTree)
+                val updatedParamss = {
+                  if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
+                    withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
+                  else {
+                    withRewrittenFirst ++ List(List(equalityEvidence))
+                  }
+                }
+                (updatedParamss, false)
+              }
             }
 
             val paramNamess: List[List[Tree]] = {
               val original = method.vparamss map { _ map { p => Ident(p.name) } }
-              original.updated(0, original(0).updated(0, Ident(TermName("self"))))
+              val replacement = if (removeSimpleArgTParam) Ident(TermName("self")) else q"self.asInstanceOf[${tparamName.toTypeName}[$arg]]"
+              original.updated(0, original(0).updated(0, replacement))
             }
 
             val rhs = paramNamess.foldLeft(Select(Ident(TermName("typeClass")), method.name): Tree) { (tree, paramNames) =>
               Apply(tree, paramNames)
             }
 
-            val fixedTParams = method.tparams.filter { _.name != simpleArg }
+            val fixedTParams = if (removeSimpleArgTParam) method.tparams.filter { _.name != simpleArg } else method.tparams
             val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
 
             determineAdapterMethodName(method) map { name =>
-              DefDef(fixedMods, name, fixedTParams, paramssFixed, rewrite(method.tpt), rhs)
+              // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
+              DefDef(fixedMods, name, fixedTParams, paramssFixed, TypeTree(), rhs)
             }
-
-          case AppliedTypeTree(g, a) =>
-            // We need an additional implicit evidence param
-            // E.g., op[G[_], A](F[G[A]], ...) => F[$A].op[G[_], A](...)(implicit ev $A =:= G[A])
-            trace(s"Not adapting ${method.name} - adaptation of methods on shape F[G[X]] not supported")
-            List(method)
         }
       }).flatten
     }
