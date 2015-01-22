@@ -94,6 +94,18 @@ class TypeClassTest extends WordSpec with Matchers {
         1 append 2 shouldBe 3
       }
 
+      "supports suppression of adapter methods" in {
+        @typeclass trait Sg[A] {
+          @noop def append(x: A, y: A): A
+        }
+        implicit val sgInt: Sg[Int] = new Sg[Int] {
+          def append(x: Int, y: Int) = x + y
+        }
+
+        import Sg.Adapter
+        "1 append 2 shouldBe 3" shouldNot compile
+      }
+
       "supports type bounds on type class type param" in {
         trait Upper
         trait Lower extends Upper

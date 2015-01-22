@@ -15,6 +15,13 @@ import scala.reflect.macros.Context
 class op(name: String, alias: Boolean = false) extends StaticAnnotation
 
 /**
+ * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
+ *
+ * Doing so results in the method being excluded from the generated syntax adapter type.
+ */
+class noop extends StaticAnnotation
+
+/**
  * Annotation that may be applied to a trait or class of one type parameter to generate
  * boilerplate that makes the type class easier to use.
  *
@@ -41,23 +48,29 @@ object TypeClassMacros {
     }
 
     def determineAdapterMethodName(sourceMethod: DefDef): List[TermName] = {
-      val overrides = sourceMethod.mods.annotations.collectFirst {
-        case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) if annotationName == "op" =>
-          val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
-          rest match {
-            case Nil =>
-              List(aliasTermName)
-            case Literal(Constant(alias: Boolean)) :: _ =>
-              if (alias) List(sourceMethod.name, aliasTermName)
-              else List(aliasTermName)
-            case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
-              if (alias) List(sourceMethod.name, aliasTermName)
-              else List(aliasTermName)
-            case other =>
-              List(aliasTermName)
-          }
+      val suppress = sourceMethod.mods.annotations.collectFirst {
+        case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Nil) if annotationName == "noop" => ()
+      }.isDefined
+      if (suppress) Nil
+      else {
+        val overrides = sourceMethod.mods.annotations.collect {
+          case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) if annotationName == "op" =>
+            val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
+            rest match {
+              case Nil =>
+                List(aliasTermName)
+              case Literal(Constant(alias: Boolean)) :: _ =>
+                if (alias) List(sourceMethod.name, aliasTermName)
+                else List(aliasTermName)
+              case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
+                if (alias) List(sourceMethod.name, aliasTermName)
+                else List(aliasTermName)
+              case other =>
+                List(aliasTermName)
+            }
+        }
+        if (overrides.isEmpty) List(sourceMethod.name) else overrides.flatten
       }
-      overrides getOrElse List(sourceMethod.name)
     }
 
     def adaptMethodForProperType(tparamName: Name, method: DefDef): List[DefDef] = {
