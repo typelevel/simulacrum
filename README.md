@@ -53,11 +53,19 @@ See [the examples](src/test/scala/simulacrum/examples.scala) for more.
 This project currently only supports Scala 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0"
+```
+
+To use the latest SNAPSHOT version, add the following:
+
+```scala
 resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/public/"
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.2.0-SNAPSHOT"
 ```
 
 Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.
@@ -66,6 +74,13 @@ Feedback is much appreciated. The generated code is a result of working with pro
 
 ## Known Limitations
 
- - With type constructor based type classes, methods are only generated on the adapter class when the first argument has shape `F[A]`, where `A` is a type parameter of the method. More complicated shapes are not currently supported (e.g., `F[G[A]]`, where `G[_]` is also a type parameter of the method).
  - When defining a type class as a subtype of another type class, and defining an abstract member of the super type concretely in the sub type, the `override` keyword must be used. For example, defining `map` in terms of `flatMap` requires `override def map[A, B](...)`.
- - Type parameters to type classes may not be specialized or otherwise annotated. This will be addressed soon.
+ - Type parameters to type classes may not be specialized or otherwise annotated. We hope to address this soon.
+ - Simulacrum annotations may not be name aliased via imports. That is, you cannot do:
+
+```scala
+  import simulacrum.{ op => foo }
+  @typeclass Bar[A] {
+    @foo def bar(a: A, a: A): A
+  }
+```
