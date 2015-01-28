@@ -70,10 +70,11 @@ libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.2.0-SNAPSHOT"
 
 Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.
 
-Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containing feedback. Also, see the [TODO.md](TODO.md) file for near term improvements.
+Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containing feedback.
 
 ## Known Limitations
 
+ - Only type classes that abstract over a proper type or a unary type constructor are currently supported. This will be extended to binary type constructors in the future, and perhaps n-ary type constructors.
  - When defining a type class as a subtype of another type class, and defining an abstract member of the super type concretely in the sub type, the `override` keyword must be used. For example, defining `map` in terms of `flatMap` requires `override def map[A, B](...)`.
  - Type parameters to type classes may not be specialized or otherwise annotated. We hope to address this soon.
  - Simulacrum annotations may not be name aliased via imports. That is, you cannot do:
@@ -84,3 +85,5 @@ Feedback is much appreciated. The generated code is a result of working with pro
     @foo def bar(a: A, a: A): A
   }
 ```
+
+ - See the GitHub issues list for other known limitations and please open issues for any other limitations you encounter. If you suspect a problem, it may be helpful to run with the `simulacrum.trace` system property (e.g., `sbt -Dsimulacrum.trace compile`), which adds a significant amount of logging to the compiler output.
