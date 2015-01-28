@@ -23,7 +23,7 @@ trait Semigroup[A] {
 }
 
 object Semigroup {
-  implicit def apply[A](implicit tc: Semigroup[A]): Semigroup[A] = tc
+  def apply[A](implicit tc: Semigroup[A]): Semigroup[A] = tc
 
   implicit class Adapter[A](val self: A)(implicit val typeClass: Semigroup[A]) {
     def |+|(y: A): A = typeClass.append(self, y)
