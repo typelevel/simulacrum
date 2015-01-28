@@ -120,6 +120,26 @@ class TypeClassTest extends WordSpec with Matchers {
         @typeclass trait Both[X >: Lower <: Upper] { def id(x: X): X = x }
         @typeclass trait Lots[X >: Lower with Mixin[Int] <: Upper] { def id(x: X): X = x }
       }
+
+      "supports diamond inheritance" in {
+        @typeclass trait Foo[A] { def op(x: A): A }
+        @typeclass trait Bar[A] extends Foo[A] {
+          def bar(x: A): A
+          override def op(x: A): A = bar(x)
+        }
+        @typeclass trait Baz[A] extends Foo[A] {
+          def baz(x: A): A
+          override def op(x: A): A = baz(x)
+        }
+        @typeclass trait Qux[A] extends Bar[A] with Baz[A] { def qux(x: A): A }
+        implicit val qint = new Qux[Int] {
+          def bar(x: Int) = x
+          def baz(x: Int) = -x
+          def qux(x: Int) = x * 2
+        }
+        import Qux.Adapter
+        1.op shouldBe -1 // Linearization causes the op override from bar to take precedence
+      }
     }
 
     "support type classes that are polymorphic over a type constructor," which {
