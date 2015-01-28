@@ -68,14 +68,22 @@ class Examples extends WordSpec with Matchers {
         def empty[A]: F[A]
       }
       @typeclass trait MonadPlus[F[_]] extends Monad[F] with PlusEmpty[F] {
+        self =>
+        class WithFilter[A](fa: F[A], p: A => Boolean) {
+          def map[B](f: A => B): F[B] = self.map(filter(fa)(p))(f)
+          def flatMap[B](f: A => F[B]): F[B] = self.flatMap(filter(fa)(p))(f)
+          def withFilter(q: A => Boolean): WithFilter[A] = new WithFilter[A](fa, x => p(x) && q(x))
+        }
+
+        def withFilter[A](fa: F[A])(p: A => Boolean): WithFilter[A] = new WithFilter[A](fa, p)
         def filter[A](fa: F[A])(f: A => Boolean) =
           flatMap(fa)(a => if (f(a)) pure(a) else empty[A])
       }
 
       sealed trait Maybe[+A]
+      case class Just[A](value: A) extends Maybe[A]
+      case object Empty extends Maybe[Nothing]
       object Maybe {
-        case class Just[A](value: A) extends Maybe[A]
-        case object Empty extends Maybe[Nothing]
 
         def just[A](a: A): Maybe[A] = Just(a)
         def empty[A]: Maybe[A] = Empty
