@@ -35,3 +35,16 @@ pomExtra := (
   </developers>
 )
 
+releaseSettings
+releaseProcess := Seq[ReleaseStep](
+  checkSnapshotDependencies,
+  inquireVersions,
+  runTest,
+  setReleaseVersion,
+  commitReleaseVersion,
+  tagRelease,
+  publishArtifacts.copy(action = publishSignedAction),
+  setNextVersion,
+  commitNextVersion,
+  pushChanges
+)
