@@ -84,6 +84,7 @@ class TypeClassTest extends WordSpec with Matchers {
       "supports aliasing the name of adapted methods (without named arg)" in {
         @typeclass trait Sg[A] {
           @op("|+|", true) def append(x: A, y: A): A
+          @simulacrum.op("~", true) def foo(x: A, y: A): A = append(x, y)
         }
         implicit val sgInt: Sg[Int] = new Sg[Int] {
           def append(x: Int, y: Int) = x + y
@@ -92,11 +93,14 @@ class TypeClassTest extends WordSpec with Matchers {
         import Sg.Adapter
         1 |+| 2 shouldBe 3
         1 append 2 shouldBe 3
+        1 foo 2 shouldBe 3
+        1 ~ 2 shouldBe 3
       }
 
       "supports suppression of adapter methods" in {
         @typeclass trait Sg[A] {
           @noop def append(x: A, y: A): A
+          @simulacrum.noop def foo(x: A, y: A): A = append(x, y)
         }
         implicit val sgInt: Sg[Int] = new Sg[Int] {
           def append(x: Int, y: Int) = x + y
@@ -104,6 +108,7 @@ class TypeClassTest extends WordSpec with Matchers {
 
         import Sg.Adapter
         "1 append 2 shouldBe 3" shouldNot compile
+        "1 foo 2 shouldBe 3" shouldNot compile
       }
 
       "supports type bounds on type class type param" in {

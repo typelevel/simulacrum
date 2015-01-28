@@ -19,7 +19,7 @@ class op(name: String, alias: Boolean = false) extends StaticAnnotation
  *
  * Doing so results in the method being excluded from the generated syntax adapter type.
  */
-class noop extends StaticAnnotation
+class noop() extends StaticAnnotation
 
 /**
  * Annotation that may be applied to a trait or class of one type parameter to generate
@@ -49,28 +49,45 @@ object TypeClassMacros {
 
     def determineAdapterMethodName(sourceMethod: DefDef): List[TermName] = {
       val suppress = sourceMethod.mods.annotations.collectFirst {
-        case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Nil) if annotationName == "noop" => ()
+        case Apply(Select(New(Ident(TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
+        case Apply(Select(New(Select(Ident(TermName("simulacrum")), TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
       }.isDefined
       if (suppress) Nil
       else {
+        def genAlias(alias: String, rest: List[Tree]) = {
+          val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
+          rest match {
+            case Nil =>
+              List(aliasTermName)
+            case Literal(Constant(alias: Boolean)) :: _ =>
+              if (alias) List(sourceMethod.name, aliasTermName)
+              else List(aliasTermName)
+            case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
+              if (alias) List(sourceMethod.name, aliasTermName)
+              else List(aliasTermName)
+            case other =>
+              List(aliasTermName)
+          }
+        }
         val overrides = sourceMethod.mods.annotations.collect {
-          case Apply(Select(New(Ident(TypeName(annotationName))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) if annotationName == "op" =>
-            val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
-            rest match {
-              case Nil =>
-                List(aliasTermName)
-              case Literal(Constant(alias: Boolean)) :: _ =>
-                if (alias) List(sourceMethod.name, aliasTermName)
-                else List(aliasTermName)
-              case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
-                if (alias) List(sourceMethod.name, aliasTermName)
-                else List(aliasTermName)
-              case other =>
-                List(aliasTermName)
-            }
+          case Apply(Select(New(Ident(TypeName("op"))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) =>
+            genAlias(alias, rest)
+          case Apply(Select(New(Select(Ident(TermName("simulacrum")), TypeName("op"))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) =>
+            genAlias(alias, rest)
         }
         if (overrides.isEmpty) List(sourceMethod.name) else overrides.flatten
       }
+    }
+
+    def filterSimulcarumAnnotations(mods: Modifiers): Modifiers = {
+      val filteredAnnotations = mods.annotations.filter {
+        case Apply(Select(New(Ident(TypeName("typeclass"))), termNames.CONSTRUCTOR), _) => false
+        case Apply(Select(New(Ident(TypeName("op"))), termNames.CONSTRUCTOR), _) => false
+        case Apply(Select(New(Ident(TypeName("noop"))), termNames.CONSTRUCTOR), _) => false
+        case Apply(Select(New(Select(Ident(TermName("simulacrum")), _)), termNames.CONSTRUCTOR), _) => false
+        case other => true
+      }
+      Modifiers(mods.flags, mods.privateWithin, filteredAnnotations)
     }
 
     def adaptMethodForProperType(tparamName: Name, method: DefDef): List[DefDef] = {
@@ -275,7 +292,15 @@ object TypeClassMacros {
         case other => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
       }
 
-      val modifiedTypeClass = typeClass
+      val modifiedTypeClass = {
+        val filteredBody = typeClass.impl.body.map {
+          case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
+            DefDef(filterSimulcarumAnnotations(mods), name, tparams, vparamss, tpt, rhs)
+          case other => other
+        }
+        val filteredImpl = Template(typeClass.impl.parents, typeClass.impl.self, filteredBody)
+        ClassDef(filterSimulcarumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
+      }
 
       val modifiedCompanion = generateCompanion(typeClass, tparam, proper, companion match {
         case Some(c) => c
