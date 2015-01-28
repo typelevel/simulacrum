@@ -1,3 +1,8 @@
+import sbtrelease._
+import ReleaseStateTransformations._
+import ReleasePlugin._
+import ReleaseKeys._
+
 organization := "com.github.mpilquist"
 name := "simulacrum"
 
