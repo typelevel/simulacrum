@@ -6,6 +6,14 @@ import ReleaseKeys._
 organization := "com.github.mpilquist"
 name := "simulacrum"
 
+scalacOptions ++= Seq(
+  "-deprecation",
+  "-feature",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-Xfatal-warnings"
+)
+
 scalaVersion := "2.11.5"
 crossScalaVersions := Seq("2.11.5")
 

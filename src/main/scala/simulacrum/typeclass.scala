@@ -2,7 +2,7 @@ package simulacrum
 
 import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox.Context
 
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
@@ -35,7 +35,7 @@ class noop() extends StaticAnnotation
  *    forwarding methods -- aka, syntax.
  */
 class typeclass extends StaticAnnotation {
-  def macroTransform(annottees: Any*) = macro TypeClassMacros.generateTypeClass
+  def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
 }
 
 object TypeClassMacros {
@@ -110,7 +110,7 @@ object TypeClassMacros {
           Apply(tree, paramNames)
         }
         name <- determineAdapterMethodName(method)
-        val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
+        fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
       } yield DefDef(fixedMods, name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
@@ -161,7 +161,7 @@ object TypeClassMacros {
                 (withRewrittenFirst, true)
               } else {
                 val typeEqualityType = AppliedTypeTree(Ident(TypeName("$eq$colon$eq")), List(Ident(liftedTypeArg.name), arg))
-                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), c.freshName(), typeEqualityType, EmptyTree)
+                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName()), typeEqualityType, EmptyTree)
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
                     withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
