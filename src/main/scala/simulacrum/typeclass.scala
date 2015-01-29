@@ -141,12 +141,11 @@ object TypeClassMacros {
           case Some(simpleArg) =>
 
             // Rewrites all occurrences of simpleArg to liftedTypeArg.name
-            val SimpleArg = simpleArg
-            def rewrite(t: Tree): Tree = t match {
-              case Ident(SimpleArg) => Ident(liftedTypeArg.name)
-              case AppliedTypeTree(x, ys) => AppliedTypeTree(rewrite(x), ys map { y => rewrite(y) })
-              // TODO case CompoundTypeTree
-              case other => other
+            object rewriteSimpleArg extends Transformer {
+              override def transform(t: Tree): Tree = t match {
+                case Ident(name) if name == simpleArg => super.transform(Ident(liftedTypeArg.name))
+                case other => super.transform(other)
+              }
             }
 
             val (paramssFixed, removeSimpleArgTParam) = {
@@ -155,7 +154,7 @@ object TypeClassMacros {
                 else firstParamList.tail :: method.vparamss.tail
               }
               val withRewrittenFirst = withoutFirst map { _ map { param =>
-                ValDef(param.mods, param.name, rewrite(param.tpt), rewrite(param.rhs))
+                ValDef(param.mods, param.name, rewriteSimpleArg.transform(param.tpt), rewriteSimpleArg.transform(param.rhs))
               }}
               if (arg equalsStructure Ident(simpleArg)) {
                 (withRewrittenFirst, true)
@@ -244,13 +243,18 @@ object TypeClassMacros {
         //   ), TypeBoundsTree(EmptyTree, EmptyTree))
         val TypeDef(_, _, tparamtparams, _) = tparam
         tparamtparams.find { _.name == typeNames.WILDCARD } match {
-          case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type is supposed unary type constructor")
+          case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed unary type constructor")
           case Some(TypeDef(mods, _, tpps, rhs)) =>
             // TODO: Might be better to create a new mods off the existing one, minus the PARAM flag
             val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
-            // TODO: we should rewrite typeNames.WILDCARD in tpps and rhs
             val liftedTypeArgName = TypeName(c.freshName())
-            TypeDef(fixedMods, liftedTypeArgName, tpps, rhs)
+            object rewriteWildcard extends Transformer {
+              override def transform(t: Tree): Tree = t match {
+                case Ident(typeNames.WILDCARD) => super.transform(Ident(liftedTypeArgName))
+                case other => super.transform(t)
+              }
+            }
+            rewriteWildcard.transformTypeDefs(List(TypeDef(fixedMods, liftedTypeArgName, tpps, rhs))).head
         }
       }
 
