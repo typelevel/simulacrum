@@ -7,7 +7,7 @@ import scala.reflect.macros.whitebox.Context
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
  *
- * Doing so changes the code generation strategy used when generating the syntax adapter type.
+ * Doing so changes the code generation strategy used when generating the syntax ops type.
  * Instead of the type class method name being used, the name specified on this annotation is used.
  * If `alias` is true, two methods are generated, one with the original name and one with the
  * specified name.
@@ -17,7 +17,7 @@ class op(name: String, alias: Boolean = false) extends StaticAnnotation
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
  *
- * Doing so results in the method being excluded from the generated syntax adapter type.
+ * Doing so results in the method being excluded from the generated syntax ops type.
  */
 class noop() extends StaticAnnotation
 
@@ -31,7 +31,7 @@ class noop() extends StaticAnnotation
  * As a result of adding this annotation, the following code is generated in the companion:
  *  - an implicit summoning method, providing syntax like `MyTypeClass[Type]` as a
  *    shortcut for `implicitly[MyTypeClass[Type]]`.
- *  - an implicit class, named `Adapter`, which provides object oriented style
+ *  - an implicit class, named `Ops`, which provides object oriented style
  *    forwarding methods -- aka, syntax.
  */
 class typeclass extends StaticAnnotation {
@@ -47,7 +47,7 @@ object TypeClassMacros {
       if (sys.props.get("simulacrum.trace").isDefined) c.info(c.enclosingPosition, s, false)
     }
 
-    def determineAdapterMethodName(sourceMethod: DefDef): List[TermName] = {
+    def determineOpsMethodName(sourceMethod: DefDef): List[TermName] = {
       val suppress = sourceMethod.mods.annotations.collectFirst {
         case Apply(Select(New(Ident(TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
         case Apply(Select(New(Select(Ident(TermName("simulacrum")), TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
@@ -90,7 +90,7 @@ object TypeClassMacros {
       Modifiers(mods.flags, mods.privateWithin, filteredAnnotations)
     }
 
-    def adaptMethodForProperType(tparamName: Name, method: DefDef): List[DefDef] = {
+    def adaptMethodForProperType(tcInstanceName: TermName, tparamName: Name, method: DefDef): List[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // matches `tparamName`
       val TargetTypeName = tparamName
@@ -106,15 +106,15 @@ object TypeClassMacros {
           val original = method.vparamss map { _ map { p => Ident(p.name) } }
           original.updated(0, original(0).updated(0, Ident(TermName("self"))))
         }
-        rhs = paramNamess.foldLeft(Select(Ident(TermName("typeClass")), method.name): Tree) { (tree, paramNames) =>
+        rhs = paramNamess.foldLeft(Select(Ident(tcInstanceName), method.name): Tree) { (tree, paramNames) =>
           Apply(tree, paramNames)
         }
-        name <- determineAdapterMethodName(method)
+        name <- determineOpsMethodName(method)
         fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
       } yield DefDef(fixedMods, name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
-    def adaptMethodForAppliedType(tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
+    def adaptMethodForAppliedType(tcInstanceName: TermName, tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // is an F[X] for some (potentially applied) type X
       val TargetTypeName = tparamName
@@ -178,14 +178,14 @@ object TypeClassMacros {
               original.updated(0, original(0).updated(0, replacement))
             }
 
-            val rhs = paramNamess.foldLeft(Select(Ident(TermName("typeClass")), method.name): Tree) { (tree, paramNames) =>
+            val rhs = paramNamess.foldLeft(Select(Ident(tcInstanceName), method.name): Tree) { (tree, paramNames) =>
               Apply(tree, paramNames)
             }
 
             val fixedTParams = if (removeSimpleArgTParam) method.tparams.filter { _.name != simpleArg } else method.tparams
             val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
 
-            determineAdapterMethodName(method) map { name =>
+            determineOpsMethodName(method) map { name =>
               // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
               DefDef(fixedMods, name, fixedTParams, paramssFixed, TypeTree(), rhs)
             }
@@ -193,37 +193,40 @@ object TypeClassMacros {
       }).flatten
     }
 
-    def adaptMethods(typeClass: ClassDef, tparamName: Name, proper: Boolean, liftedTypeArg: Option[TypeDef]): List[DefDef] = {
+    def adaptMethods(typeClass: ClassDef, tcInstanceName: TermName, tparamName: Name, proper: Boolean, liftedTypeArg: Option[TypeDef]): List[DefDef] = {
       val typeClassMethods = typeClass.impl.children.collect {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
       }
       typeClassMethods.flatMap { method =>
-        val adapted = if (proper) adaptMethodForProperType(tparamName, method) else adaptMethodForAppliedType(tparamName, method, liftedTypeArg.get)
+        val adapted =
+          if (proper) adaptMethodForProperType(tcInstanceName, tparamName, method)
+          else adaptMethodForAppliedType(tcInstanceName, tparamName, method, liftedTypeArg.get)
         adapted
       }
     }
 
-    def generateAdapter(typeClass: ClassDef, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]) = {
-      val adaptedMethods = adaptMethods(typeClass, tparam.name, proper, liftedTypeArg)
-      val adapterBases: List[Tree] = {
+    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]) = {
+      val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
+      val opsBases: List[Tree] = {
         typeClass.impl.parents.flatMap {
           case AppliedTypeTree(Ident(TypeName(parentTypeClassName)), arg :: Nil) =>
             val typeArgs = arg :: (if (proper) Nil else List(Ident(liftedTypeArg.get.name)))
-            Some(AppliedTypeTree(Select(Ident(TermName(parentTypeClassName)), TypeName("Adapter")), typeArgs))
+            Some(AppliedTypeTree(Select(Ident(TermName(parentTypeClassName)), TypeName("Ops")), typeArgs))
           case other => None
         }
       }
+
       if (proper) {
-        q"""trait Adapter[${tparam}] extends ..${adapterBases} {
-          def typeClass: ${typeClass.name}[${tparam.name}]
+        q"""trait Ops[${tparam}] extends ..${opsBases} {
+          def $tcInstanceName: ${typeClass.name}[${tparam.name}]
           def self: ${tparam.name}
           ..$adaptedMethods
 
         }"""
       } else {
         q"""
-        trait Adapter[${tparam}, ${liftedTypeArg.get}] extends ..${adapterBases} {
-          def typeClass: ${typeClass.name}[${tparam.name}]
+        trait Ops[${tparam}, ${liftedTypeArg.get}] extends ..${opsBases} {
+          def $tcInstanceName: ${typeClass.name}[${tparam.name}]
           def self: ${tparam.name}[${liftedTypeArg.get.name}]
           ..$adaptedMethods
         }"""
@@ -231,7 +234,6 @@ object TypeClassMacros {
     }
 
     def generateCompanion(typeClass: ClassDef, tparam: TypeDef, proper: Boolean, comp: Tree) = {
-
       val summoner = q"def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
       val liftedTypeArg = if (proper) None else Some {
@@ -258,29 +260,37 @@ object TypeClassMacros {
         }
       }
 
-      val adapter = generateAdapter(typeClass, tparam, proper, liftedTypeArg)
-      trace(s"Generated adapter class for ${typeClass.name}:\n" + adapter)
+      val tcInstanceName = TermName("typeClassInstance")
 
-      val adapterConversion = {
-        if (proper) {
-          // Generate an implicit conversion from A to Adapter[A]
-          q"implicit def Adapter[$tparam](target: ${tparam.name})(implicit tc: ${typeClass.name}[${tparam.name}]): Adapter[${tparam.name}] = new Adapter[${tparam.name}] { val self = target; val typeClass = tc }"
-        } else {
-          // Generate an implicit conversion from F[A] to Adapter[F, A]
-          val typeArg = liftedTypeArg.get
-          q"implicit def Adapter[$tparam, $typeArg](target: ${tparam.name}[${typeArg.name}])(implicit tc: ${typeClass.name}[${tparam.name}]): Adapter[${tparam.name}, ${typeArg.name}] = new Adapter[${tparam.name}, ${typeArg.name}] { val self = target; val typeClass = tc }"
+      val opsTrait = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
+      trace(s"Generated ops trait for ${typeClass.name}:\n" + opsTrait)
+
+      val toOpsTraitName = TypeName(s"To${typeClass.name}Ops")
+      val toOpsTrait = {
+        val toOpsMethodName = TermName(s"to${typeClass.name}Ops")
+        val method = {
+          if (proper) {
+            // Generate an implicit conversion from A to Ops[A]
+            q"implicit def $toOpsMethodName[$tparam](target: ${tparam.name})(implicit tc: ${typeClass.name}[${tparam.name}]): Ops[${tparam.name}] = new Ops[${tparam.name}] { val self = target; val $tcInstanceName = tc }"
+          } else {
+            // Generate an implicit conversion from F[A] to Ops[F, A]
+            val typeArg = liftedTypeArg.get
+            q"implicit def $toOpsMethodName[$tparam, $typeArg](target: ${tparam.name}[${typeArg.name}])(implicit tc: ${typeClass.name}[${tparam.name}]): Ops[${tparam.name}, ${typeArg.name}] = new Ops[${tparam.name}, ${typeArg.name}] { val self = target; val $tcInstanceName = tc }"
+          }
         }
+        q"trait $toOpsTraitName { $method }"
       }
 
-      val lowerTypeClassName = TermName(typeClass.name.toString.updated(0, typeClass.name.toString.charAt(0).toLower))
+      val opsObject = q"object ops extends $toOpsTraitName"
 
       val q"object $name extends ..$bases { ..$body }" = comp
       q"""
         object $name extends ..$bases {
           ..$body
           $summoner
-          $adapter
-          $adapterConversion
+          $opsTrait
+          $toOpsTrait
+          $opsObject
         }
       """
     }

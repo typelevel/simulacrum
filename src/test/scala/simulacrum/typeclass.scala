@@ -22,7 +22,7 @@ class TypeClassTest extends WordSpec with Matchers {
 
       "generates object oriented style forwarding methods" in {
         "1 append 2 shouldBe 3" shouldNot compile
-        import Semigroup.Adapter
+        import Semigroup.ops._
         1 append 2 shouldBe 3
         1 appendCurried 2 shouldBe 3
       }
@@ -37,7 +37,7 @@ class TypeClassTest extends WordSpec with Matchers {
         }
         Monoid[Int].id shouldBe 0
         Monoid[Int].append(1, 2) shouldBe 3
-        Monoid.Adapter(1).append(2) shouldBe 3
+        Monoid.ops.toMonoidOps(1).append(2) shouldBe 3
       }
 
       "supports pre-existing companions" in {
@@ -63,7 +63,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.Adapter
+        import Sg.ops._
         1 |+| 2 shouldBe 3
         "1 append 2" shouldNot compile
       }
@@ -76,7 +76,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.Adapter
+        import Sg.ops._
         1 |+| 2 shouldBe 3
         1 append 2 shouldBe 3
       }
@@ -90,7 +90,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.Adapter
+        import Sg.ops._
         1 |+| 2 shouldBe 3
         1 append 2 shouldBe 3
         1 foo 2 shouldBe 3
@@ -106,7 +106,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.Adapter
+        import Sg.ops._
         "1 append 2 shouldBe 3" shouldNot compile
         "1 foo 2 shouldBe 3" shouldNot compile
       }
@@ -137,7 +137,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def baz(x: Int) = -x
           def qux(x: Int) = x * 2
         }
-        import Qux.Adapter
+        import Qux.ops._
         1.op shouldBe -1 // Linearization causes the op override from bar to take precedence
       }
     }
@@ -160,7 +160,7 @@ class TypeClassTest extends WordSpec with Matchers {
 
       "generates object oriented style forwarding methods" in {
         "List(1, 2, 3).as(0) shouldBe List(0, 0, 0)" shouldNot compile
-        import Functor.Adapter
+        import Functor.ops._
         List(1, 2, 3).as(0) shouldBe List(0, 0, 0)
       }
 
@@ -175,7 +175,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def flatMap[A, B](ga: List[A])(f: A => List[B]): List[B] = ga.flatMap(f)
         }
         Monad[List].flatMap(List(1, 2))(x => List(x, x)) shouldBe List(1, 1, 2, 2)
-        Monad.Adapter(List(1, 2)).flatMap { x => List(x, x) } shouldBe List(1, 1, 2, 2)
+        Monad.ops.toMonadOps(List(1, 2)).flatMap { x => List(x, x) } shouldBe List(1, 1, 2, 2)
       }
 
       "supports changing the name of adapted methods" in {
@@ -188,10 +188,10 @@ class TypeClassTest extends WordSpec with Matchers {
           def pure[A](a: => A) = List(a)
           def flatMap[A, B](ga: List[A])(f: A => List[B]): List[B] = ga.flatMap(f)
         }
-        import Monad.Adapter
+        import Monad.ops._
         val twice: Int => List[Int] = x => List(x, x)
         (List(1, 2, 3) >>= twice) shouldBe List(1, 1, 2, 2, 3, 3)
-        "Monad.Adapter(List(1, 2, 3)) flatMap twice" shouldNot compile
+        "Monad.Ops(List(1, 2, 3)) flatMap twice" shouldNot compile
       }
 
       "supports aliasing the name of adapted methods" in {
@@ -204,10 +204,10 @@ class TypeClassTest extends WordSpec with Matchers {
           def pure[A](a: => A) = List(a)
           def flatMap[A, B](ga: List[A])(f: A => List[B]): List[B] = ga.flatMap(f)
         }
-        import Monad.Adapter
+        import Monad.ops._
         val twice: Int => List[Int] = x => List(x, x)
         (List(1, 2, 3) >>= twice) shouldBe List(1, 1, 2, 2, 3, 3)
-        Monad.Adapter(List(1, 2, 3)) flatMap twice shouldBe List(1, 1, 2, 2, 3, 3)
+        Monad.ops.toMonadOps(List(1, 2, 3)) flatMap twice shouldBe List(1, 1, 2, 2, 3, 3)
       }
 
       "supports type bounds on type class type param" in {
@@ -231,14 +231,14 @@ class TypeClassTest extends WordSpec with Matchers {
         implicit val listFoldable: Foldable[List] = new Foldable[List] {
           def foldLeft[A, B](fa: List[A])(b: B)(f: (B, A) => B): B = fa.foldLeft(b)(f)
         }
-        import Foldable.Adapter
+        import Foldable.ops._
         List(1, 2, 3).concatenate shouldBe 6
       }
 
       "lifted type argument in return type is rewritten correctly" in {
         @typeclass trait Foo[F[_]] { def toEither[A](fa: F[A]): Either[String, A] }
         implicit val listFoo = new Foo[List] { def toEither[A](fa: List[A]) = if (fa.isEmpty) Left("empty") else Right(fa.head) }
-        import Foo.Adapter
+        import Foo.ops._
         Nil.toEither shouldBe Left("empty")
       }
 
@@ -252,7 +252,7 @@ class TypeClassTest extends WordSpec with Matchers {
         implicit val fooOption: Foo[Option] = new Foo[Option] {
           def foo[G[_], A, B](fa: Option[A])(f: A => G[B]): G[Option[B]] = null.asInstanceOf[G[Option[B]]]
         }
-        import Foo.Adapter
+        import Foo.ops._
         Option(Option(1)).bar
       }
     }

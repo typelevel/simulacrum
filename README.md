@@ -25,13 +25,24 @@ trait Semigroup[A] {
 object Semigroup {
   def apply[A](implicit tc: Semigroup[A]): Semigroup[A] = tc
 
-  implicit class Adapter[A](val self: A)(implicit val typeClass: Semigroup[A]) {
-    def |+|(y: A): A = typeClass.append(self, y)
+  trait Ops[A] {
+    def self: A
+    def typeClassInstance: Semigroup[A]
+    def |+|(y: A): A = semigroup.append(self, y)
   }
+
+  trait ToSemigroupOps {
+    implicit def toSemigroupOps[A](a: A)(implicit sg: Semigroup[A]): Ops[A] = new Ops[A] {
+      def self = a
+      def semigroup = sg
+    }
+  }
+
+  object ops extends ToSemigroupOps
 }
 ```
 
-This isn't exactly what's generated -- for instance, the `Adapter` class is really generated as a trait to support various subtyping cases. Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`. The current implementation only supports unary type constructors, but support for binary type constructors is planned.
+Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`. The current implementation only supports unary type constructors, but support for binary type constructors is planned.
 
 This allows usage like:
 
@@ -40,7 +51,7 @@ implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
   def append(x: Int, y: Int) = x + y
 }
 
-import Semigroup.Adapter
+import Semigroup.ops._
 1 |+| 2 // 3
 
 

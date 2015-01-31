@@ -32,7 +32,7 @@ class Examples extends WordSpec with Matchers {
         Monoid[Int] shouldBe IntMonoids.Additive
         Semigroup[Int] shouldBe IntMonoids.Additive
 
-        import Monoid.Adapter
+        import Monoid.ops._
         1 |+| 2 shouldBe 3
       }
 
@@ -41,7 +41,7 @@ class Examples extends WordSpec with Matchers {
         Monoid[Int] shouldBe IntMonoids.Multiplicative
         Semigroup[Int] shouldBe IntMonoids.Multiplicative
 
-        import Monoid.Adapter
+        import Monoid.ops._
         1 |+| 2 shouldBe 2
       }
     }
@@ -98,16 +98,16 @@ class Examples extends WordSpec with Matchers {
         }
       }
 
-      import MonadPlus.Adapter
+      import MonadPlus.ops._
 
-      // We get the map function from Functor.Adapter, which is the super-super-super class of MonadPlus.Adapter
+      // We get the map function from Functor.Ops, which is the super-super-super class of MonadPlus.Ops
       Maybe.just(1) map ((_: Int) + 1) shouldBe Maybe.just(2)
 
-      // We get >>= syntax as an alias for flatMap from the super-class of MonadPlus.Adapter
+      // We get >>= syntax as an alias for flatMap from the super-class of MonadPlus.Ops
       val recriprocal: Int => Maybe[Double] = x => if (x == 0) Maybe.empty else Maybe.just(1.0 / x)
       Maybe.just(1) >>= recriprocal
 
-      // We get map from Functor.Adapter, flatMap from Monad.Adapter, and filter from MonadPlus.Adapter
+      // We get map from Functor.Ops, flatMap from Monad.Ops, and filter from MonadPlus.Ops
       def div(x: Maybe[Int], y: Maybe[Int]): Maybe[Double] = for {
         xx <- x
         yy <- y
@@ -116,6 +116,35 @@ class Examples extends WordSpec with Matchers {
 
       div(Maybe.just(1), Maybe.just(2)) shouldBe Maybe.just(1.toDouble / 2)
       div(Maybe.just(1), Maybe.empty) shouldBe Maybe.empty
+    }
+
+    "support using ops from unrelated type classes in the same scope" in {
+      @typeclass trait Equal[A] {
+        @op("=#=") def equal(x: A, y: A): Boolean
+      }
+      @typeclass trait Semigroup[A] {
+        @op("|+|") def append(x: A, y: A): A
+      }
+
+      implicit val intInstance: Equal[Int] with Semigroup[Int] = new Equal[Int] with Semigroup[Int] {
+        def equal(x: Int, y: Int) = x == y
+        def append(x: Int, y: Int) = x + y
+      }
+
+      // We cannot import Equal.Ops and Semigroup.Ops because of the name clash
+      // However, an alias for the implicit conversion is generated which allows direct import
+      {
+        import Equal.ops._, Semigroup.ops._
+        (1 |+| 2) =#= (2 |+| 1)
+      }
+
+      // Alernatively, multiple type class ops can be combined in to a syntax object, which provides
+      // a single import for all implicit conversions
+      {
+        object all extends Equal.ToEqualOps with Semigroup.ToSemigroupOps
+        import all._
+        (1 |+| 2) =#= (2 |+| 1)
+      }
     }
   }
 }
