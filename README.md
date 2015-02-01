@@ -64,7 +64,7 @@ See [the examples](src/test/scala/simulacrum/examples.scala) for more.
 This project currently only supports Scala 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
 
 libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0"
 ```
@@ -74,7 +74,7 @@ To use the latest SNAPSHOT version, add the following:
 ```scala
 resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/public/"
 
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
 
 libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.2.0-SNAPSHOT"
 ```
