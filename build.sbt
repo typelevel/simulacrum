@@ -21,7 +21,7 @@ libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
   "org.scalatest" %% "scalatest" % "2.2.3" % "test"
 )
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.0.1" cross CrossVersion.full)
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M4" cross CrossVersion.full)
 
 licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE"))
 
