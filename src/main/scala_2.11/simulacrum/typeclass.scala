@@ -49,8 +49,8 @@ object TypeClassMacros {
 
     def determineOpsMethodName(sourceMethod: DefDef): List[TermName] = {
       val suppress = sourceMethod.mods.annotations.collectFirst {
-        case Apply(Select(New(Ident(TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
-        case Apply(Select(New(Select(Ident(TermName("simulacrum")), TypeName("noop"))), termNames.CONSTRUCTOR), Nil) => ()
+        case q"new noop()" => ()
+        case q"new simulacrum.noop()" => ()
       }.isDefined
       if (suppress) Nil
       else {
@@ -62,7 +62,7 @@ object TypeClassMacros {
             case Literal(Constant(alias: Boolean)) :: _ =>
               if (alias) List(sourceMethod.name, aliasTermName)
               else List(aliasTermName)
-            case AssignOrNamedArg(Ident(TermName("alias")), Literal(Constant(alias: Boolean))) :: _ =>
+            case q"alias = ${ Literal(Constant(alias: Boolean)) }" :: _ =>
               if (alias) List(sourceMethod.name, aliasTermName)
               else List(aliasTermName)
             case other =>
@@ -70,10 +70,8 @@ object TypeClassMacros {
           }
         }
         val overrides = sourceMethod.mods.annotations.collect {
-          case Apply(Select(New(Ident(TypeName("op"))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) =>
-            genAlias(alias, rest)
-          case Apply(Select(New(Select(Ident(TermName("simulacrum")), TypeName("op"))), termNames.CONSTRUCTOR), Literal(Constant(alias: String)) :: rest) =>
-            genAlias(alias, rest)
+          case q"new op(${ Literal(Constant(alias: String)) }, ..$rest)" => genAlias(alias, rest)
+          case q"new simulacrum.op(${ Literal(Constant(alias: String)) }, ..$rest)" => genAlias(alias, rest)
         }
         if (overrides.isEmpty) List(sourceMethod.name) else overrides.flatten
       }
@@ -81,10 +79,10 @@ object TypeClassMacros {
 
     def filterSimulcarumAnnotations(mods: Modifiers): Modifiers = {
       val filteredAnnotations = mods.annotations.filter {
-        case Apply(Select(New(Ident(TypeName("typeclass"))), termNames.CONSTRUCTOR), _) => false
-        case Apply(Select(New(Ident(TypeName("op"))), termNames.CONSTRUCTOR), _) => false
-        case Apply(Select(New(Ident(TypeName("noop"))), termNames.CONSTRUCTOR), _) => false
-        case Apply(Select(New(Select(Ident(TermName("simulacrum")), _)), termNames.CONSTRUCTOR), _) => false
+        case q"new typeclass(..${_})" => false
+        case q"new op(..${_})" => false
+        case q"new noop(..${_})" => false
+        case q"new simulacrum.${_}(..${_})" => false
         case other => true
       }
       Modifiers(mods.flags, mods.privateWithin, filteredAnnotations)

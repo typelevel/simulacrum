@@ -222,11 +222,14 @@ class TypeClassTest extends WordSpec with Matchers {
       }
 
       "lifted type argument in method bodies are supported" in {
-        @typeclass trait Monoid[A] { def append(x: A, y: A): A; def id: A }
-        @typeclass trait Foldable[F[_]] {
-          def foldLeft[A, B](fa: F[A])(b: B)(f: (B, A) => B): B
-          def concatenate[A: Monoid](fa: F[A]): A = foldLeft(fa)(Monoid[A].id)((acc, a) => Monoid[A].append(acc, a))
+        object typeClasses {
+          @typeclass trait Monoid[A] { def append(x: A, y: A): A; def id: A }
+          @typeclass trait Foldable[F[_]] {
+            def foldLeft[A, B](fa: F[A])(b: B)(f: (B, A) => B): B
+            def concatenate[A: Monoid](fa: F[A]): A = foldLeft(fa)(Monoid[A].id)((acc, a) => Monoid[A].append(acc, a))
+          }
         }
+        import typeClasses._
         implicit val intMonoid: Monoid[Int] = new Monoid[Int] { def append(x: Int, y: Int) = x + y; def id = 0 }
         implicit val listFoldable: Foldable[List] = new Foldable[List] {
           def foldLeft[A, B](fa: List[A])(b: B)(f: (B, A) => B): B = fa.foldLeft(b)(f)
