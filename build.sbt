@@ -15,12 +15,21 @@ scalacOptions ++= Seq(
 )
 
 scalaVersion := "2.11.5"
-crossScalaVersions := Seq("2.11.5")
+crossScalaVersions := Seq("2.10.4", "2.11.5")
+
+unmanagedSourceDirectories in Compile +=
+  (sourceDirectory in Compile).value / s"scala_${scalaBinaryVersion.value}"
 
 libraryDependencies ++= Seq(
   "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
   "org.scalatest" %% "scalatest" % "2.2.3" % "test"
+) ++ (
+  CrossVersion.partialVersion(scalaVersion.value) match {
+    case Some((2, scalaMajor)) if scalaMajor == 10 => Seq("org.scalamacros" %% "quasiquotes" % "2.1.0-M5")
+    case _ => Nil
+  }
 )
+
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
 
 licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE"))
