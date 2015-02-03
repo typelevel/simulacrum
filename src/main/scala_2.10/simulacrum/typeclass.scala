@@ -42,6 +42,11 @@ object TypeClassMacros {
   def generateTypeClass(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
+    def freshName() = c.fresh()
+    def TermName(name: String) = newTermName(name)
+    def TypeName(name: String) = newTypeName(name)
+    val typeNames = tpnme
+
     def trace(s: => String) = {
       // Macro paradise seems to always output info statements, even without -verbose
       if (sys.props.get("simulacrum.trace").isDefined) c.info(c.enclosingPosition, s, false)
@@ -55,14 +60,14 @@ object TypeClassMacros {
       if (suppress) Nil
       else {
         def genAlias(alias: String, rest: List[Tree]) = {
-          val aliasTermName = newTermName(reflect.NameTransformer.encode(alias))
+          val aliasTermName = TermName(reflect.NameTransformer.encode(alias))
           rest match {
             case Nil =>
               List(aliasTermName)
             case Literal(Constant(alias: Boolean)) :: _ =>
               if (alias) List(sourceMethod.name.toTermName, aliasTermName)
               else List(aliasTermName)
-            case q"alias = ${ Literal(Constant(alias: Boolean)) }" :: _ =>
+            case q"alias = ${Literal(Constant(alias: Boolean))}" :: _ =>
               if (alias) List(sourceMethod.name.toTermName, aliasTermName)
               else List(aliasTermName)
             case other =>
@@ -70,14 +75,14 @@ object TypeClassMacros {
           }
         }
         val overrides = sourceMethod.mods.annotations.collect {
-          case q"new op(${ Literal(Constant(alias: String)) }, ..$rest)" => genAlias(alias, rest)
-          case q"new simulacrum.op(${ Literal(Constant(alias: String)) }, ..$rest)" => genAlias(alias, rest)
+          case q"new op(${Literal(Constant(alias: String))}, ..$rest)" => genAlias(alias, rest)
+          case q"new simulacrum.op(${Literal(Constant(alias: String))}, ..$rest)" => genAlias(alias, rest)
         }
         if (overrides.isEmpty) List(sourceMethod.name.toTermName) else overrides.flatten
       }
     }
 
-    def filterSimulcarumAnnotations(mods: Modifiers): Modifiers = {
+    def filterSimulacrumAnnotations(mods: Modifiers): Modifiers = {
       val filteredAnnotations = mods.annotations.filter {
         case q"new typeclass(..${_})" => false
         case q"new op(..${_})" => false
@@ -102,7 +107,7 @@ object TypeClassMacros {
         }
         paramNamess: List[List[Tree]] = {
           val original = method.vparamss map { _ map { p => Ident(p.name) } }
-          original.updated(0, original(0).updated(0, Ident(newTermName("self"))))
+          original.updated(0, original(0).updated(0, q"self"))
         }
         rhs = paramNamess.foldLeft(Select(Ident(tcInstanceName), method.name): Tree) { (tree, paramNames) =>
           Apply(tree, paramNames)
@@ -127,7 +132,7 @@ object TypeClassMacros {
         val simpleArgOpt: Option[Name] = {
           def extract(tree: Tree): Option[Name] = tree match {
             case Ident(name: TypeName) if typeArgs contains name => Some(name)
-            case AppliedTypeTree(ctor, targs) =>
+            case tq"$ctor[..$targs]" =>
               targs.foldLeft(None: Option[Name]) { (acc, targ) => extract(targ) }
             case other => None
           }
@@ -157,8 +162,8 @@ object TypeClassMacros {
               if (arg equalsStructure Ident(simpleArg)) {
                 (withRewrittenFirst, true)
               } else {
-                val typeEqualityType = AppliedTypeTree(Ident(newTypeName("$eq$colon$eq")), List(Ident(liftedTypeArg.name), arg))
-                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), newTermName(c.fresh()), typeEqualityType, EmptyTree)
+                val typeEqualityType = tq"${liftedTypeArg.name} =:= $arg"
+                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(freshName()), typeEqualityType, EmptyTree)
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
                     withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
@@ -172,7 +177,7 @@ object TypeClassMacros {
 
             val paramNamess: List[List[Tree]] = {
               val original = method.vparamss map { _ map { p => Ident(p.name) } }
-              val replacement = if (removeSimpleArgTParam) Ident(newTermName("self")) else q"self.asInstanceOf[${tparamName.toTypeName}[$arg]]"
+              val replacement = if (removeSimpleArgTParam) q"self" else q"self.asInstanceOf[${tparamName.toTypeName}[$arg]]"
               original.updated(0, original(0).updated(0, replacement))
             }
 
@@ -185,7 +190,7 @@ object TypeClassMacros {
 
             determineOpsMethodName(method) map { name =>
               // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
-              DefDef(fixedMods, name, fixedTParams, paramssFixed, TypeTree(), rhs)
+              q"$fixedMods def $name[..$fixedTParams](...$paramssFixed) = $rhs"
             }
         }
       }).flatten
@@ -207,7 +212,7 @@ object TypeClassMacros {
       val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
       val opsBases: List[Tree] = {
         typeClass.impl.parents.flatMap {
-          case tq"${ Ident(parentTypeClassTypeName) }[$arg]" =>
+          case tq"${Ident(parentTypeClassTypeName)}[$arg]" =>
             val typeArgs = arg :: (if (proper) Nil else List(Ident(liftedTypeArg.get.name)))
             Some(tq"${parentTypeClassTypeName.toTermName}.Ops[..$typeArgs]")
           case other => None
@@ -242,15 +247,15 @@ object TypeClassMacros {
         //     TypeDef(Modifiers(PARAM), typeNames.WILDCARD, List(), TypeBoundsTree(Ident(TypeName("Lower")), Ident(TypeName("Upper"))))
         //   ), TypeBoundsTree(EmptyTree, EmptyTree))
         val TypeDef(_, _, tparamtparams, _) = tparam
-        tparamtparams.find { _.name == tpnme.WILDCARD } match {
+        tparamtparams.find { _.name == typeNames.WILDCARD } match {
           case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed unary type constructor")
-          case Some(TypeDef(mods, _, tpps, rhs)) =>
+          case Some(q"$mods type ${_}[..$tpps] = $rhs") =>
             // TODO: Might be better to create a new mods off the existing one, minus the PARAM flag
             val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
-            val liftedTypeArgName = newTypeName(c.fresh())
+            val liftedTypeArgName = TypeName(freshName())
             object rewriteWildcard extends Transformer {
               override def transform(t: Tree): Tree = t match {
-                case Ident(tpnme.WILDCARD) => super.transform(Ident(liftedTypeArgName))
+                case Ident(typeNames.WILDCARD) => super.transform(Ident(liftedTypeArgName))
                 case other => super.transform(t)
               }
             }
@@ -258,14 +263,14 @@ object TypeClassMacros {
         }
       }
 
-      val tcInstanceName = newTermName("typeClassInstance")
+      val tcInstanceName = TermName("typeClassInstance")
 
       val opsTrait = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
       trace(s"Generated ops trait for ${typeClass.name}:\n" + opsTrait)
 
-      val toOpsTraitName = newTypeName(s"To${typeClass.name}Ops")
+      val toOpsTraitName = TypeName(s"To${typeClass.name}Ops")
       val toOpsTrait = {
-        val toOpsMethodName = newTermName(s"to${typeClass.name}Ops")
+        val toOpsMethodName = TermName(s"to${typeClass.name}Ops")
         val method = {
           if (proper) {
             // Generate an implicit conversion from A to Ops[A]
@@ -306,12 +311,12 @@ object TypeClassMacros {
 
       val modifiedTypeClass = {
         val filteredBody = typeClass.impl.body.map {
-          case DefDef(mods, name, tparams, vparamss, tpt, rhs) =>
-            DefDef(filterSimulcarumAnnotations(mods), name, tparams, vparamss, tpt, rhs)
+          case q"$mods def $name[..$tparams](...$vparamss): $tpt = $rhs" =>
+            q"${filterSimulacrumAnnotations(mods)} def $name[..$tparams](...$vparamss): $tpt = $rhs"
           case other => other
         }
         val filteredImpl = Template(typeClass.impl.parents, typeClass.impl.self, filteredBody)
-        ClassDef(filterSimulcarumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
+        ClassDef(filterSimulacrumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
       }
 
       val modifiedCompanion = generateCompanion(typeClass, tparam, proper, companion match {
