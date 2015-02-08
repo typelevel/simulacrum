@@ -259,7 +259,6 @@ object TypeClassMacros {
         tparamtparams.find { _.name == typeNames.WILDCARD } match {
           case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed unary type constructor")
           case Some(q"$mods type ${_}[..$tpps] = $rhs") =>
-            // TODO: Might be better to create a new mods off the existing one, minus the PARAM flag
             val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
             val liftedTypeArgName = TypeName(freshName("lta"))
             object rewriteWildcard extends Transformer {

@@ -139,8 +139,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def qux(x: Int) = x * 2
         }
         import Qux.ops._
-        //1.op shouldBe -1 // Linearization causes the op override from bar to take precedence
-        // TODO
+        1.op shouldBe -1 // Linearization causes the op override from bar to take precedence
       }
     }
 
