@@ -31,8 +31,14 @@ class noop() extends StaticAnnotation
  * As a result of adding this annotation, the following code is generated in the companion:
  *  - an implicit summoning method, providing syntax like `MyTypeClass[Type]` as a
  *    shortcut for `implicitly[MyTypeClass[Type]]`.
- *  - an implicit class, named `Ops`, which provides object oriented style
- *    forwarding methods -- aka, syntax.
+ *  - a trait, named `Ops`, which provides object oriented style forwarding
+ *    methods -- aka, syntax -- for the methods defined directly on the type class.
+ *  - a trait, named `AllOps`, which extends `Ops` and the `Ops` traits for any
+ *    super types.
+ *  - a trait, named `ToMyTypeClassOps`, which provides an implicit conversion
+ *    that enables use of the `Ops` trait.
+ *  - an object, named `ops`, which provides an implicit conversion to the
+ *    `AllOps` trait.
  */
 class typeclass extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
@@ -113,8 +119,8 @@ object TypeClassMacros {
           Apply(tree, paramNames)
         }
         name <- determineOpsMethodName(method)
-        fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
-      } yield DefDef(fixedMods, name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
+        if !method.mods.hasFlag(Flag.OVERRIDE)
+      } yield DefDef(Modifiers(NoFlags), name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
     def adaptMethodForAppliedType(tcInstanceName: TermName, tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
@@ -125,6 +131,7 @@ object TypeClassMacros {
         firstParamList <- method.vparamss.headOption.toList
         firstParam <- firstParamList.headOption.toList
         AppliedTypeTree(Ident(TargetTypeName), arg :: Nil) <- Option(firstParam.tpt).toList
+        if !method.mods.hasFlag(Flag.OVERRIDE)
       } yield {
 
         val typeArgs = method.tparams.map { _.name }.toSet
@@ -186,11 +193,10 @@ object TypeClassMacros {
             }
 
             val fixedTParams = if (removeSimpleArgTParam) method.tparams.filter { _.name != simpleArg } else method.tparams
-            val fixedMods = if (method.mods.hasFlag(Flag.OVERRIDE)) Modifiers(Flag.OVERRIDE) else Modifiers(NoFlags)
 
             determineOpsMethodName(method) map { name =>
               // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
-              q"$fixedMods def $name[..$fixedTParams](...$paramssFixed) = $rhs"
+              q"def $name[..$fixedTParams](...$paramssFixed) = $rhs"
             }
         }
       }).flatten
@@ -208,32 +214,29 @@ object TypeClassMacros {
       }
     }
 
-    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]) = {
+    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]): ClassDef = {
       val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
-      val opsBases: List[Tree] = {
-        typeClass.impl.parents.flatMap {
-          case tq"${Ident(parentTypeClassTypeName)}[$arg]" =>
-            val typeArgs = arg :: (if (proper) Nil else List(Ident(liftedTypeArg.get.name)))
-            Some(tq"${parentTypeClassTypeName.toTermName}.Ops[..$typeArgs]")
-          case other => None
-        }
-      }
+      val tparams = List(tparam) ++ liftedTypeArg
+      val tparamNames = tparams.map { _.name }
+      val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
 
-      if (proper) {
-        q"""trait Ops[${tparam}] extends ..${opsBases} {
-          def $tcInstanceName: ${typeClass.name}[${tparam.name}]
-          def self: ${tparam.name}
-          ..$adaptedMethods
+      q"""trait Ops[..$tparams] {
+        def $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        def self: $targetType
+        ..$adaptedMethods
+      }"""
+    }
 
-        }"""
-      } else {
-        q"""
-        trait Ops[${tparam}, ${liftedTypeArg.get}] extends ..${opsBases} {
-          def $tcInstanceName: ${typeClass.name}[${tparam.name}]
-          def self: ${tparam.name}[${liftedTypeArg.get.name}]
-          ..$adaptedMethods
-        }"""
+    def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArg: Option[TypeDef]): ClassDef = {
+      val tparams = List(tparam) ++ liftedTypeArg
+      val tparamNames = tparams.map { _.name }
+      val parents = typeClass.impl.parents.collect {
+        case tq"${Ident(parentTypeClassTypeName)}[$arg]" =>
+          tq"${parentTypeClassTypeName.toTermName}.AllOps[..$tparamNames]"
       }
+      q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$parents {
+        def $tcInstanceName: ${typeClass.name}[${tparam.name}]
+      }"""
     }
 
     def generateCompanion(typeClass: ClassDef, tparam: TypeDef, proper: Boolean, comp: Tree) = {
@@ -266,34 +269,39 @@ object TypeClassMacros {
       val tcInstanceName = TermName("typeClassInstance")
 
       val opsTrait = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
-      trace(s"Generated ops trait for ${typeClass.name}:\n" + opsTrait)
+      val allOpsTrait = generateAllOps(typeClass, tcInstanceName, tparam, liftedTypeArg)
 
-      val toOpsTraitName = TypeName(s"To${typeClass.name}Ops")
+      def generateOpsImplicitConversion(opsType: TypeName, methodName: TermName) = {
+        val tparams = List(tparam) ++ liftedTypeArg
+        val tparamNames = tparams.map(_.name)
+        val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
+        q"""
+        implicit def $methodName[..$tparams](target: $targetType)(implicit tc: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames] =
+          new $opsType[..$tparamNames] { val self = target; val $tcInstanceName = tc }
+        """
+      }
+
       val toOpsTrait = {
-        val toOpsMethodName = TermName(s"to${typeClass.name}Ops")
-        val method = {
-          if (proper) {
-            // Generate an implicit conversion from A to Ops[A]
-            q"implicit def $toOpsMethodName[$tparam](target: ${tparam.name})(implicit tc: ${typeClass.name}[${tparam.name}]): Ops[${tparam.name}] = new Ops[${tparam.name}] { val self = target; val $tcInstanceName = tc }"
-          } else {
-            // Generate an implicit conversion from F[A] to Ops[F, A]
-            val typeArg = liftedTypeArg.get
-            q"implicit def $toOpsMethodName[$tparam, $typeArg](target: ${tparam.name}[${typeArg.name}])(implicit tc: ${typeClass.name}[${tparam.name}]): Ops[${tparam.name}, ${typeArg.name}] = new Ops[${tparam.name}, ${typeArg.name}] { val self = target; val $tcInstanceName = tc }"
-          }
-        }
+        val toOpsTraitName = TypeName(s"To${typeClass.name}Ops")
+        val method = generateOpsImplicitConversion(opsTrait.name, TermName(s"to${typeClass.name}Ops"))
         q"trait $toOpsTraitName { $method }"
       }
 
-      val opsObject = q"object ops extends $toOpsTraitName"
+      val allOpsConversion = {
+        val method = generateOpsImplicitConversion(TypeName("AllOps"), TermName(s"toAll${typeClass.name}Ops"))
+        q"object ops { $method }"
+      }
+
+      val opsMembers: List[Tree] = {
+        List(opsTrait, toOpsTrait, allOpsTrait, allOpsConversion)
+      }
 
       val q"object $name extends ..$bases { ..$body }" = comp
       q"""
         object $name extends ..$bases {
           ..$body
           $summoner
-          $opsTrait
-          $toOpsTrait
-          $opsObject
+          ..$opsMembers
         }
       """
     }
@@ -324,10 +332,14 @@ object TypeClassMacros {
         case None => q"object ${typeClass.name.toTermName} {}"
       })
 
-      c.Expr(q"""
+      val result = c.Expr(q"""
         $modifiedTypeClass
         $modifiedCompanion
       """)
+
+      trace(s"Generated type class ${typeClass.name}:\n" + result)
+
+      result
     }
 
     annottees.map(_.tree) match {
