@@ -125,10 +125,14 @@ class Examples extends WordSpec with Matchers {
       @typeclass trait Semigroup[A] {
         @op("|+|") def append(x: A, y: A): A
       }
+      @typeclass trait Monoid[A] {
+        def id: A
+      }
 
       implicit val intInstance: Equal[Int] with Semigroup[Int] = new Equal[Int] with Semigroup[Int] {
         def equal(x: Int, y: Int) = x == y
         def append(x: Int, y: Int) = x + y
+        def id: Int = 0
       }
 
       // We cannot import Equal.Ops and Semigroup.Ops because of the name clash
@@ -141,7 +145,7 @@ class Examples extends WordSpec with Matchers {
       // Alernatively, multiple type class ops can be combined in to a syntax object, which provides
       // a single import for all implicit conversions
       {
-        object all extends Equal.ToEqualOps with Semigroup.ToSemigroupOps
+        object all extends Equal.ToEqualOps with Semigroup.ToSemigroupOps with Monoid.ToMonoidOps
         import all._
         (1 |+| 2) =#= (2 |+| 1)
       }
