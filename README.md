@@ -143,7 +143,6 @@ Feedback is much appreciated. The generated code is a result of working with pro
 
  - Only type classes that abstract over a proper type or a unary type constructor are currently supported. This will be extended to binary type constructors in the future, and perhaps n-ary type constructors.
  - When defining a type class as a subtype of another type class, and defining an abstract member of the super type concretely in the sub type, the `override` keyword must be used. For example, defining `map` in terms of `flatMap` requires `override def map[A, B](...)`.
- - Type parameters to type classes may not be specialized or otherwise annotated. We hope to address this soon.
  - Simulacrum annotations may not be name aliased via imports. That is, you cannot do:
 
 ```scala
