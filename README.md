@@ -23,28 +23,37 @@ trait Semigroup[A] {
 }
 
 object Semigroup {
-  def apply[A](implicit tc: Semigroup[A]): Semigroup[A] = tc
+  def apply[A](implicit instance: Semigroup[A]): Semigroup[A] = instance
 
   trait Ops[A] {
-    def self: A
     def typeClassInstance: Semigroup[A]
-    def |+|(y: A): A = semigroup.append(self, y)
+    def self: A
+    def |+|(y: A): A = typeClassInstance.append(self, y)
   }
 
   trait ToSemigroupOps {
-    implicit def toSemigroupOps[A](a: A)(implicit sg: Semigroup[A]): Ops[A] = new Ops[A] {
-      def self = a
-      def semigroup = sg
+    implicit def toSemigroupOps[A](target: A)(implicit tc: Semigroup[A]): Ops[A] = new Ops[A] {
+      val self = target
+      val typeClassInstance = tc
     }
   }
 
-  object ops extends ToSemigroupOps
+  trait AllOps[A] extends Ops[A] {
+    def typeClassInstance: Semigroup[A]
+  }
+
+  object ops {
+    implicit def toAllSemigroupOps[A](target: A)(implicit tc: Semigroup[A]): AllOps[A] = new AllOps[A] {
+      val self = target
+      val typeClassInstance = tc
+    }
+  }
 }
 ```
 
-Subtyping of type classes is supported (e.g., you can define a `Monoid` type class that extends `Semigroup` and the generated code adapts accordingly). Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`. The current implementation only supports unary type constructors, but support for binary type constructors is planned.
+The `Ops` trait contains extension methods for a value of type `A` for which there's a `Semigroup[A]` instance available. The `ToSemigroupOps` trait contains an implicit conversion from an `A` to an `Ops[A]`. The `ToSemigroupOps` trait can be mixed in to a class in order to get access to the extension methods. It can also be mixed in to an object, along with other `ToXyzOps` traits, in order to provide a single mass import object.
 
-This allows usage like:
+The `AllOps` trait mixes in `Ops` along with the `AllOps` traits of all super types. In this example, there are no super types, but we'll look at such an example soon. Finally, the `ops` object provides an implicit conversion that can be directly imported in order to use the extension methods.
 
 ```scala
 implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
@@ -53,20 +62,67 @@ implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
 
 import Semigroup.ops._
 1 |+| 2 // 3
-
-
 ```
+
+Subtyping of type classes is supported. For example:
+
+```scala
+@typeclass trait Monoid[A] extends Semigroup[A] {
+  def id: A
+}
+```
+
+Generates:
+
+```scala
+trait Monoid[A] extends Semigroup[A] {
+  def id: A
+}
+
+object Monoid {
+  def apply[A](implicit instance: Monoid[A]): Monoid[A] = instance
+
+  trait Ops[A] {
+    def typeClassInstance: Monoid[A]
+    def self: A
+  }
+
+  trait ToMonoidOps {
+    implicit def toMonoidOps[A](target: A)(implicit tc: Monoid[A]): Ops[A] = new Ops[A] {
+      val self = target
+      val typeClassInstance = tc
+    }
+  }
+
+  trait AllOps[A] extends Ops[A] with Semigroup.AllOps[A] {
+    def typeClassInstance: Monoid[A]
+  }
+
+  object ops {
+    implicit def toAllMonoidOps[A](target: A)(implicit tc: Monoid[A]): AllOps[A] = new AllOps[A] {
+      val self = target
+      val typeClassInstance = tc
+    }
+  }
+}
+```
+
+In this example, the `id` method was not lifted to the `Ops` trait because it is not an extension method for an `A` value. Even though there were no such methods, an empty `Ops` trait was still generated. This is important for various subtyping scenarios as they relate to separate compilation.
+
+Higher kinds are also supported -- specifically, type classes that are polymorphic over type constructors, like `Functor`. The current implementation only supports unary type constructors, but support for binary type constructors is planned.
+
+This allows usage like:
 
 See [the examples](src/test/scala/simulacrum/examples.scala) for more.
 
 ## Usage
 
-This project currently only supports Scala 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
+This project supports Scala 2.10 and 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.1.0"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.2.0"
 ```
 
 To use the latest SNAPSHOT version, add the following:
@@ -76,7 +132,7 @@ resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/publi
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.2.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.3.0-SNAPSHOT"
 ```
 
 Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.

@@ -51,11 +51,19 @@ object TypeClassMacros {
   def generateTypeClass(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
     import c.universe._
 
-    def freshName() = c.freshName()
+    def freshName(prefix: String) = c.freshName(prefix)
 
     def trace(s: => String) = {
       // Macro paradise seems to always output info statements, even without -verbose
       if (sys.props.get("simulacrum.trace").isDefined) c.info(c.enclosingPosition, s, false)
+    }
+
+    class RewriteTypeName(from: TypeName, to: TypeName) extends Transformer {
+      override def transform(t: Tree): Tree = t match {
+        case Ident(name) if name == from => super.transform(Ident(to))
+        case TypeDef(mods, name, tparams, rhs) if name == from => super.transform(TypeDef(mods, to, tparams, rhs))
+        case other => super.transform(other)
+      }
     }
 
     def determineOpsMethodName(sourceMethod: DefDef): List[TermName] = {
@@ -151,12 +159,7 @@ object TypeClassMacros {
           case Some(simpleArg) =>
 
             // Rewrites all occurrences of simpleArg to liftedTypeArg.name
-            object rewriteSimpleArg extends Transformer {
-              override def transform(t: Tree): Tree = t match {
-                case Ident(name) if name == simpleArg => super.transform(Ident(liftedTypeArg.name))
-                case other => super.transform(other)
-              }
-            }
+            val rewriteSimpleArg = new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArg.name)
 
             val (paramssFixed, removeSimpleArgTParam) = {
               val withoutFirst = {
@@ -170,7 +173,7 @@ object TypeClassMacros {
                 (withRewrittenFirst, true)
               } else {
                 val typeEqualityType = tq"${liftedTypeArg.name} =:= $arg"
-                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(freshName()), typeEqualityType, EmptyTree)
+                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(freshName("ev")), typeEqualityType, EmptyTree)
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
                     withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
@@ -214,17 +217,20 @@ object TypeClassMacros {
       }
     }
 
-    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]): ClassDef = {
+    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]): (ClassDef, Set[TypeName]) = {
       val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
       val tparams = List(tparam) ++ liftedTypeArg
       val tparamNames = tparams.map { _.name }
       val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
 
-      q"""trait Ops[..$tparams] {
+      val opsTrait = q"""trait Ops[..$tparams] {
         def $tcInstanceName: ${typeClass.name}[${tparam.name}]
         def self: $targetType
         ..$adaptedMethods
       }"""
+
+      val reservedTypeNames = adaptedMethods.flatMap(_.tparams.map(_.name)).toSet ++ tparamNames
+      (opsTrait, reservedTypeNames)
     }
 
     def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArg: Option[TypeDef]): ClassDef = {
@@ -255,7 +261,7 @@ object TypeClassMacros {
           case Some(q"$mods type ${_}[..$tpps] = $rhs") =>
             // TODO: Might be better to create a new mods off the existing one, minus the PARAM flag
             val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
-            val liftedTypeArgName = TypeName(freshName())
+            val liftedTypeArgName = TypeName(freshName("lta"))
             object rewriteWildcard extends Transformer {
               override def transform(t: Tree): Tree = t match {
                 case Ident(typeNames.WILDCARD) => super.transform(Ident(liftedTypeArgName))
@@ -268,7 +274,7 @@ object TypeClassMacros {
 
       val tcInstanceName = TermName("typeClassInstance")
 
-      val opsTrait = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
+      val (opsTrait, opsReservedTParamNames) = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
       val allOpsTrait = generateAllOps(typeClass, tcInstanceName, tparam, liftedTypeArg)
 
       def generateOpsImplicitConversion(opsType: TypeName, methodName: TermName) = {
@@ -297,13 +303,22 @@ object TypeClassMacros {
       }
 
       val q"object $name extends ..$bases { ..$body }" = comp
-      q"""
+      val companion = q"""
         object $name extends ..$bases {
           ..$body
           $summoner
           ..$opsMembers
         }
       """
+
+      // Rewrite liftedTypeArg.name to something easier to read
+      liftedTypeArg.fold(companion: Tree) { lta =>
+        val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).toList
+        val newLiftedTypeArgName = potentialNames.find(nme => !(opsReservedTParamNames contains nme))
+        newLiftedTypeArgName.fold(companion: Tree) { newName =>
+          new RewriteTypeName(from = lta.name, to = newName).transform(companion)
+        }
+      }
     }
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = {
@@ -337,7 +352,7 @@ object TypeClassMacros {
         $modifiedCompanion
       """)
 
-      trace(s"Generated type class ${typeClass.name}:\n" + result)
+      trace(s"Generated type class ${typeClass.name}:\n" + showCode(result.tree))
 
       result
     }
