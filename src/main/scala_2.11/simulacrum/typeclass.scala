@@ -251,11 +251,18 @@ object TypeClassMacros {
         case q"new typeclass(..${args})" => args
         case q"new simulacrum.typeclass(..${args})" => args
       }
-      val parents = typeClass.impl.parents.collect {
-        case tq"${Ident(parentTypeClassTypeName)}[$arg]" if !(typeClassArguments.parentsToExclude contains parentTypeClassTypeName.toTypeName) =>
-          tq"${parentTypeClassTypeName.toTermName}.AllOps[..$tparamNames]"
+      val typeClassParents: List[TypeName] = typeClass.impl.parents.collect {
+        case tq"${Ident(parentTypeClassTypeName)}[..$_]" => parentTypeClassTypeName.toTypeName
       }
-      q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$parents {
+      val allOpsParents = typeClassParents collect {
+        case parent if !(typeClassArguments.parentsToExclude contains parent) =>
+          tq"${parent.toTermName}.AllOps[..$tparamNames]"
+      }
+      val unknownParentExclusions = (typeClassArguments.parentsToExclude -- typeClassParents.toSet).toList.map(_.toString).sorted
+      if (unknownParentExclusions.nonEmpty) {
+        c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
+      }
+      q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$allOpsParents {
         def $tcInstanceName: ${typeClass.name}[${tparam.name}]
       }"""
     }

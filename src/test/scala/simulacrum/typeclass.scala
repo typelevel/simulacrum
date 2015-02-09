@@ -146,6 +146,13 @@ class TypeClassTest extends WordSpec with Matchers {
         trait Show[A] { def show(a: A): String }
         @typeclass(excludeParents = List("Show")) trait ShowingSemigroup[A] extends Show[A] { def append(x: A, y: A): A }
       }
+
+      "report compilation failures when excludeParents attribute references unknown parent" in {
+        trait Show[A] { def show(a: A): String }
+        """
+        @typeclass(excludeParents = List("Show", "Foo")) trait ShowingSemigroup[A] extends Show[A] { def append(x: A, y: A): A }
+        """ shouldNot compile
+      }
     }
 
     "support type classes that are polymorphic over a type constructor," which {
