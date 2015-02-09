@@ -1,4 +1,6 @@
-package simulacrum
+package simulacrum.examples
+
+import simulacrum._
 
 import org.scalatest.{ WordSpec, Matchers }
 
