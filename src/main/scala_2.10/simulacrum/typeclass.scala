@@ -43,7 +43,7 @@ class noop() extends StaticAnnotation
  * As a result, the ops can be used by either importing `MyTypeClass.ops._` or
  * by mixing `MyTypeClass.ToMyTypeClassOps` in to a type.
  */
-class typeclass extends StaticAnnotation {
+class typeclass(excludeParents: List[String] = Nil) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
 }
 
@@ -68,6 +68,17 @@ object TypeClassMacros {
         case TypeDef(mods, name, tparams, rhs) if name == from => super.transform(TypeDef(mods, to, tparams, rhs))
         case other => super.transform(other)
       }
+    }
+
+    case class Arguments(parentsToExclude: Set[TypeName])
+
+    val typeClassArguments: Arguments = c.prefix.tree match {
+      case Apply(_, args) =>
+        val excludeParents: Set[TypeName] = args.collectFirst { case q"excludeParents = $exclusions" =>
+          c.eval(c.Expr[List[String]](exclusions)).map { n => TypeName(n) }.toSet
+        }.getOrElse(Set.empty)
+        Arguments(excludeParents)
+      case other => c.abort(c.enclosingPosition, "not possible - macro invoked on type that does not have @typeclass: " + showRaw(other))
     }
 
     def determineOpsMethodName(sourceMethod: DefDef): List[TermName] = {
@@ -240,11 +251,22 @@ object TypeClassMacros {
     def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArg: Option[TypeDef]): ClassDef = {
       val tparams = List(tparam) ++ liftedTypeArg
       val tparamNames = tparams.map { _.name }
-      val parents = typeClass.impl.parents.collect {
-        case tq"${Ident(parentTypeClassTypeName)}[$arg]" =>
-          tq"${parentTypeClassTypeName.toTermName}.AllOps[..$tparamNames]"
+      val tcargs = typeClass.mods.annotations.collectFirst {
+        case q"new typeclass(..${args})" => args
+        case q"new simulacrum.typeclass(..${args})" => args
       }
-      q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$parents {
+      val typeClassParents: List[TypeName] = typeClass.impl.parents.collect {
+        case tq"${Ident(parentTypeClassTypeName)}[..$_]" => parentTypeClassTypeName.toTypeName
+      }
+      val allOpsParents = typeClassParents collect {
+        case parent if !(typeClassArguments.parentsToExclude contains parent) =>
+          tq"${parent.toTermName}.AllOps[..$tparamNames]"
+      }
+      val unknownParentExclusions = (typeClassArguments.parentsToExclude -- typeClassParents.toSet).toList.map(_.toString).sorted
+      if (unknownParentExclusions.nonEmpty) {
+        c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
+      }
+      q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$allOpsParents {
         def $tcInstanceName: ${typeClass.name}[${tparam.name}]
       }"""
     }
