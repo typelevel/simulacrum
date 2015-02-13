@@ -259,7 +259,7 @@ object TypeClassMacros {
         case q"new simulacrum.typeclass(..${args})" => args
       }
       val typeClassParents: List[TypeName] = typeClass.impl.parents.collect {
-        case tq"${Ident(parentTypeClassTypeName)}[..${_}]" => parentTypeClassTypeName.toTypeName
+        case tq"${Ident(parentTypeClassTypeName)}[${_}]" => parentTypeClassTypeName.toTypeName
       }
       val allOpsParents = typeClassParents collect {
         case parent if !(typeClassArguments.parentsToExclude contains parent) =>

@@ -159,6 +159,12 @@ class TypeClassTest extends WordSpec with Matchers {
         "trait foo extends Show.AllOps" shouldNot compile
         "Show.ops" shouldNot compile
       }
+
+      "supports universal traits" in {
+        @typeclass trait Univseral[A] extends Any {
+          def foo: A
+        }
+      }
     }
 
     "support type classes that are polymorphic over a type constructor," which {
