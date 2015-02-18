@@ -23,6 +23,7 @@ lazy val commonSettings = releaseSettings ++ Seq(
       case _ => Nil
     }
   ),
+  crossBuild := true,
   addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo <<= version { v: String =>
