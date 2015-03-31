@@ -117,6 +117,27 @@ See [the examples](src/test/scala/simulacrum/examples.scala) for more.
 
 ## Usage
 
+The generated code supports two modes of method extension. Consider the case of the `Monad` typeclass: it is a subtype of `Applicative` which is, itself, a subtype of `Functor`. After extending our monad with the `Monad` trait, we need to bring our implicits into scope.
+
+```scala
+/**
+ * We can simply import the contents of Monad's ops
+ *  object to get it and all ancestor methods:
+ */
+import Monad.ops._
+
+/**
+ * Alternatively, we can use the ToMonadOps trait
+ *  to mixin just the operations we want:
+ */
+object NoMapForMonad extends ToMonadOps with ToApplicativeOps {}
+import NoMapForMonad._
+```
+
+Note that the second approach will not include the `map` operation of its grandparent type, `Functor`. The benefit of this second approach is that a collection of method extensions can be brought into scope all at once. Indeed, the typeclasses of operations imported in this second fashion need not be related.
+
+## Including Simulacrum
+
 This project supports Scala 2.10 and 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
