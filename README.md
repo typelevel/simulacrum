@@ -113,7 +113,7 @@ Higher kinds are also supported -- specifically, type classes that are polymorph
 
 This allows usage like:
 
-See [the examples](src/test/scala/simulacrum/examples.scala) for more.
+See [the examples](examples/src/test/scala/simulacrum/examples/examples.scala) for more.
 
 ## Usage
 
