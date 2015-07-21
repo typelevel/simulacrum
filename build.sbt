@@ -12,19 +12,13 @@ lazy val commonSettings = releaseSettings ++ Seq(
     "-language:implicitConversions",
     "-Xfatal-warnings"
   ),
-  scalaVersion := "2.11.5",
-  crossScalaVersions := Seq("2.10.4", "2.11.5"),
+  scalaVersion := "2.11.7",
+  crossScalaVersions := Seq("2.10.5", "2.11.7"),
   libraryDependencies ++= Seq(
-    "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
-    "org.scalatest" %% "scalatest" % "2.2.3" % "test"
-  ) ++ (
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, scalaMajor)) if scalaMajor == 10 => Seq("org.scalamacros" %% "quasiquotes" % "2.1.0-M5")
-      case _ => Nil
-    }
+    "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
   ),
   crossBuild := true,
-  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full),
+  addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0-M5" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo <<= version { v: String =>
     val nexus = "https://oss.sonatype.org/"
@@ -74,18 +68,57 @@ lazy val commonSettings = releaseSettings ++ Seq(
   )
 )
 
+lazy val root = project.in(file("."))
+  .settings(commonSettings: _*)
+  .settings(noPublishSettings: _*)
+  .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
-lazy val root = project.in(file(".")).aggregate(core, examples).settings(commonSettings: _*).settings(
+lazy val core = crossProject.crossType(CrossType.Pure)
+  .settings(commonSettings: _*)
+  .settings(moduleName := "simulacrum")
+  .settings(crossVersionSharedSources:_*)
+  .settings(scalaMacroDependencies:_*)
+
+lazy val coreJVM = core.jvm
+lazy val coreJS = core.js
+
+lazy val examples = crossProject.crossType(CrossType.Pure)
+  .dependsOn(core)
+  .settings(commonSettings: _*)
+  .settings(moduleName := "simulacrum-examples")
+  .settings(noPublishSettings: _*)
+
+lazy val examplesJVM = examples.jvm
+lazy val examplesJS = examples.js
+
+// Base Build Settings
+lazy val scalaMacroDependencies: Seq[Setting[_]] = Seq(
+  libraryDependencies += "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
+  libraryDependencies ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      // if scala 2.11+ is used, quasiquotes are merged into scala-reflect
+      case Some((2, scalaMajor)) if scalaMajor >= 11 => Seq()
+      // in Scala 2.10, quasiquotes are provided by macro paradise
+      case Some((2, 10)) =>
+        Seq(
+          compilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full),
+              "org.scalamacros" %% "quasiquotes" % "2.1.0-M5" cross CrossVersion.binary
+        )
+    }
+  }
+)
+
+lazy val noPublishSettings = Seq(
+  publish := (),
+  publishLocal := (),
   publishArtifact := false
 )
 
-lazy val core = project.settings(commonSettings: _*).settings(
-  name := "simulacrum",
-  unmanagedSourceDirectories in Compile +=
-    (sourceDirectory in Compile).value / s"scala_${scalaBinaryVersion.value}"
-)
-
-lazy val examples = project.dependsOn(core).settings(commonSettings: _*).settings(
-  name := "simulacrum-examples",
-  publishArtifact := false
-)
+def crossVersionSharedSources() =
+  Seq(Compile, Test).map { sc =>
+    (unmanagedSourceDirectories in sc) ++= {
+      (unmanagedSourceDirectories in sc ).value.map {
+        dir:File => new File(dir.getPath + "_" + scalaBinaryVersion.value)
+      }
+    }
+  }
