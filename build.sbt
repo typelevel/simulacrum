@@ -1,9 +1,6 @@
 import sbtrelease._
-import ReleaseStateTransformations._
-import ReleasePlugin._
-import ReleaseKeys._
 
-lazy val commonSettings = releaseSettings ++ Seq(
+lazy val commonSettings = Seq(
   organization := "com.github.mpilquist",
   scalacOptions ++= Seq(
     "-deprecation",
@@ -17,7 +14,6 @@ lazy val commonSettings = releaseSettings ++ Seq(
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
   ),
-  crossBuild := true,
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0-M5" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo <<= version { v: String =>
@@ -54,18 +50,10 @@ lazy val commonSettings = releaseSettings ++ Seq(
     val stripTestScope = stripIf { n => n.label == "dependency" && (n \ "scope").text == "test" }
     new RuleTransformer(stripTestScope).transform(node)(0)
   },
-  releaseProcess := Seq[ReleaseStep](
-    checkSnapshotDependencies,
-    inquireVersions,
-    runTest,
-    setReleaseVersion,
-    commitReleaseVersion,
-    tagRelease,
-    publishArtifacts.copy(action = publishSignedAction),
-    setNextVersion,
-    commitNextVersion,
-    pushChanges
-  )
+  releaseCrossBuild := true,
+  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
+  useGpg := true,
+  useGpgAgent := true
 )
 
 lazy val root = project.in(file("."))
