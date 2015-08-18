@@ -168,7 +168,7 @@ Feedback is much appreciated. The generated code is a result of working with pro
 
 ```scala
   import simulacrum.{ op => foo }
-  @typeclass Bar[A] {
+  @typeclass trait Bar[A] {
     @foo def bar(a: A, a: A): A
   }
 ```
