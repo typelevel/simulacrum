@@ -154,3 +154,4 @@ class Examples extends WordSpec with Matchers {
     }
   }
 }
+

@@ -4,6 +4,8 @@ import scala.annotation.StaticAnnotation
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
+import macrocompat._
+
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
  *
@@ -47,11 +49,11 @@ class typeclass(excludeParents: List[String] = Nil, generateAllOps: Boolean = tr
   def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
 }
 
-object TypeClassMacros {
-  def generateTypeClass(c: Context)(annottees: c.Expr[Any]*): c.Expr[Any] = {
-    import c.universe._
+@bundle
+class TypeClassMacros(val c: Context) {
+  import c.universe._
 
-    def freshName(prefix: String) = c.freshName(prefix)
+  def generateTypeClass(annottees: c.Expr[Any]*): c.Expr[Any] = {
 
     def trace(s: => String) = {
       // Macro paradise seems to always output info statements, even without -verbose
@@ -187,7 +189,7 @@ object TypeClassMacros {
                 (withRewrittenFirst, true)
               } else {
                 val typeEqualityType = tq"${liftedTypeArg.name} =:= $arg"
-                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(freshName("ev")), typeEqualityType, EmptyTree)
+                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), typeEqualityType, EmptyTree)
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
                     withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
@@ -285,7 +287,7 @@ object TypeClassMacros {
           case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed unary type constructor")
           case Some(q"$mods type ${_}[..$tpps] = $rhs") =>
             val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
-            val liftedTypeArgName = TypeName(freshName("lta"))
+            val liftedTypeArgName = TypeName(c.freshName("lta"))
             object rewriteWildcard extends Transformer {
               override def transform(t: Tree): Tree = t match {
                 case Ident(typeNames.WILDCARD) => super.transform(Ident(liftedTypeArgName))

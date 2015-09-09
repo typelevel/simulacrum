@@ -11,6 +11,10 @@ lazy val commonSettings = Seq(
   ),
   scalaVersion := "2.11.7",
   crossScalaVersions := Seq("2.10.5", "2.11.7"),
+  resolvers ++= Seq(
+    Resolver.sonatypeRepo("releases"),
+    Resolver.sonatypeRepo("snapshots")
+  ),
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
   ),
@@ -63,8 +67,10 @@ lazy val root = project.in(file("."))
 
 lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(commonSettings: _*)
-  .settings(moduleName := "simulacrum")
-  .settings(crossVersionSharedSources:_*)
+  .settings(
+    moduleName := "simulacrum",
+    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.0.0-SNAPSHOT"
+  )
   .settings(scalaMacroDependencies:_*)
 
 lazy val coreJVM = core.jvm
@@ -101,12 +107,3 @@ lazy val noPublishSettings = Seq(
   publishLocal := (),
   publishArtifact := false
 )
-
-def crossVersionSharedSources() =
-  Seq(Compile, Test).map { sc =>
-    (unmanagedSourceDirectories in sc) ++= {
-      (unmanagedSourceDirectories in sc ).value.map {
-        dir:File => new File(dir.getPath + "_" + scalaBinaryVersion.value)
-      }
-    }
-  }
