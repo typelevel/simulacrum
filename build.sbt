@@ -69,7 +69,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
-    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.0.0-SNAPSHOT"
+    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.0.2"
   )
   .settings(scalaMacroDependencies:_*)
 
