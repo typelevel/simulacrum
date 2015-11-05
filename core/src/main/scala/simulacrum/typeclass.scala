@@ -330,9 +330,9 @@ class TypeClassMacros(val c: Context) {
         ops ++ allOps
       }
 
-      val q"object $name extends ..$bases { ..$body }" = comp
+      val q"$mods object $name extends ..$bases { ..$body }" = comp
       val companion = q"""
-        object $name extends ..$bases {
+        $mods object $name extends ..$bases {
           ..$body
           $summoner
           ..$opsMembers
