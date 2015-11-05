@@ -284,5 +284,11 @@ class TypeClassTest extends WordSpec with Matchers {
         Option(Option(1)).bar
       }
     }
+
+    "support annotated companions" in {
+      class exports extends scala.annotation.StaticAnnotation
+      @typeclass trait Foo[F[_]]
+      @exports object Foo
+    }
   }
 }
