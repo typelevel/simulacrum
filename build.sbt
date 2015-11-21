@@ -1,4 +1,7 @@
 import sbtrelease._
+import com.typesafe.tools.mima.core._
+import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
+import com.typesafe.tools.mima.plugin.MimaKeys._
 
 lazy val commonSettings = Seq(
   organization := "com.github.mpilquist",
@@ -65,6 +68,13 @@ lazy val root = project.in(file("."))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
+def previousVersion(currentVersion: String): Option[String] = {
+  val Version = """(\d+)\.(\d+)\.(\d+).*""".r
+  val Version(x, y, z) = currentVersion
+  if (z == "0") Some(s"$x.${y.toInt - 1}.0")
+  else Some(s"$x.$y.${z.toInt - 1}")
+}
+
 lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
@@ -72,6 +82,12 @@ lazy val core = crossProject.crossType(CrossType.Pure)
     libraryDependencies += "org.typelevel" %% "macro-compat" % "1.1.0"
   )
   .settings(scalaMacroDependencies:_*)
+  .jvmSettings(mimaDefaultSettings: _*)
+  .jvmSettings(
+    previousArtifact := previousVersion(version.value) map { pv =>
+      organization.value % ("simulacrum" + "_" + scalaBinaryVersion.value) % pv
+    }
+  )
 
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
