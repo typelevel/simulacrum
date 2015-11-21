@@ -250,8 +250,15 @@ class TypeClassMacros(val c: Context) {
       val tparamNames = tparams.map { _.name }
       val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
       val shouldImportTcMembers = {
-        // TODO
-        false
+        val typeMembersOfTypeClass = typeClass.impl.children.collect { case t: TypeDef => t }
+        typeMembersOfTypeClass.exists { td =>
+          adaptedMethods.exists { method =>
+            method.exists {
+              case Ident(tpname) => tpname == td.name
+              case _ => false
+            }
+          }
+        }
       }
       val importTcMembers = if (shouldImportTcMembers) List(q"""import $tcInstanceName._""") else Nil
 
