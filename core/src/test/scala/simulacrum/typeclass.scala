@@ -123,7 +123,8 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.ops._
+        // We'd typically import these ops but -Ywarn-unused-imports won't let us
+        // import Sg.ops._
         "1 append 2 shouldBe 3" shouldNot compile
         "1 foo 2 shouldBe 3" shouldNot compile
       }
@@ -330,7 +331,7 @@ class TypeClassTest extends WordSpec with Matchers {
      *  exhaustively as possible. Not that anyone has ever troubled
      *  themselves with doing that in the compiler itself.
      */
-    "handle abstract type members" in {
+    "handle abstract type members (1)" in {
       case class Dingo(x: Int)
       var dingo: Dingo = null
 
@@ -367,6 +368,25 @@ class TypeClassTest extends WordSpec with Matchers {
       dingo shouldBe Dingo(5)
       dingo = Dingo(10)
       intBippoid.fn(dingo) shouldBe 10
+    }
+
+    "handle abstract type members (2)" in {
+      @typeclass trait Companion1[T] {
+        type A
+        def apply(a: A): T
+        def unapply(t: T): Option[A]
+      }
+      object Foo extends Companion1[String] {
+        type A = Int
+        def apply(x: Int) = x.toString
+        def unapply(s: String) = util.Try(s.toInt).toOption
+      }
+      Foo(1) shouldBe "1"
+      Foo.unapply("1") shouldBe Some(1)
+    }
+
+    "generate universal traits by default" in {
+      trait Foo[F[_]] extends Any with Functor[F]
     }
   }
 }

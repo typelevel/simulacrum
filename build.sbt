@@ -10,7 +10,8 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:higherKinds",
     "-language:implicitConversions",
-    "-Xfatal-warnings"
+    "-Xfatal-warnings",
+    "-Ywarn-unused-import"
   ),
   scalaVersion := "2.11.7",
   crossScalaVersions := Seq("2.10.5", "2.11.7"),

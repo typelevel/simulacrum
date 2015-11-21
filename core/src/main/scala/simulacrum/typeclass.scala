@@ -249,10 +249,15 @@ class TypeClassMacros(val c: Context) {
       val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArg
       val tparamNames = tparams.map { _.name }
       val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
+      val shouldImportTcMembers = {
+        // TODO
+        false
+      }
+      val importTcMembers = if (shouldImportTcMembers) List(q"""import $tcInstanceName._""") else Nil
 
       val opsTrait = q"""trait Ops[..$tparams] {
         val $tcInstanceName: ${typeClass.name}[${tparam.name}]
-        import $tcInstanceName._
+        ..$importTcMembers
         def self: $targetType
         ..$adaptedMethods
       }"""
@@ -380,7 +385,17 @@ class TypeClassMacros(val c: Context) {
           case other => other
         }
         val modifiedParents = {
-          typeClass.impl.parents :+ tq"_root_.scala.Serializable"
+          val makeUniversal = {
+            typeClass.impl.parents match {
+              case tq"_root_.scala.Any" :: Nil => false
+              case tq"scala.Any" :: Nil => false
+              case tq"_root_.scala.AnyRef" :: Nil => true
+              case tq"scala.AnyRef" :: Nil => true
+              case _ => false
+            }
+          }
+          val universal = if (makeUniversal) List(tq"_root_.scala.Any") else typeClass.impl.parents
+          universal :+ tq"_root_.scala.Serializable"
         }
         val filteredImpl = Template(modifiedParents, typeClass.impl.self, filteredBody)
         ClassDef(filterSimulacrumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
