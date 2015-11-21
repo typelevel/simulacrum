@@ -319,5 +319,48 @@ class TypeClassTest extends WordSpec with Matchers {
         }
       }
     }
+
+    /** As above, it would pay to exercise these combinations as
+     *  exhaustively as possible. Not that anyone has ever troubled
+     *  themselves with doing that in the compiler itself.
+     */
+    "handle abstract type members" in {
+      case class Dingo(x: Int)
+      var dingo: Dingo = null
+
+      object typeClasses {
+        @typeclass trait Bippoid[A] {
+          type Bippy
+          def append(x: A, y: A): A
+          def secretId: Bippy
+          def fn(x: Bippy): Int
+        }
+        @typeclass trait Foldable[F[_]] {
+          def reduce[A](fa: F[A])(f: (A, A) => A): A
+          def obtainDingo[A](fa: F[A])(implicit z: Bippoid[A]): (z.Bippy, A) = z.secretId -> reduce(fa)(z.append)
+        }
+      }
+      import typeClasses._
+
+      implicit val intBippoid = new Bippoid[Int] {
+        type Bippy = Dingo
+        def append(x: Int, y: Int) = x + y
+        def secretId = Dingo(5)
+        def fn(x: Bippy) = x.x
+      }
+      implicit val foldInstance = new Foldable[List] {
+        def reduce[A](fa: List[A])(f: (A, A) => A): A = fa reduceLeft f
+      }
+
+      import Foldable.ops._
+
+      // Making sure we can assign to the dingo var with a value
+      // which has the abstract type from the Bippoid.
+      val dep = List(1, 2, 3).obtainDingo
+      dingo = dep._1
+      dingo shouldBe Dingo(5)
+      dingo = Dingo(10)
+      intBippoid.fn(dingo) shouldBe 10
+    }
   }
 }

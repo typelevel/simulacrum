@@ -251,7 +251,8 @@ class TypeClassMacros(val c: Context) {
       val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
 
       val opsTrait = q"""trait Ops[..$tparams] {
-        def $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        val $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        import $tcInstanceName._
         def self: $targetType
         ..$adaptedMethods
       }"""
@@ -279,7 +280,7 @@ class TypeClassMacros(val c: Context) {
         c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
       }
       q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$allOpsParents {
-        def $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        val $tcInstanceName: ${typeClass.name}[${tparam.name}]
       }"""
     }
 
