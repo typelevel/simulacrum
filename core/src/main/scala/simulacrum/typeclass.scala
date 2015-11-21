@@ -62,7 +62,8 @@ class TypeClassMacros(val c: Context) {
       val u        = c.universe.asInstanceOf[c.universe.type with scala.reflect.internal.SymbolTable]
       val tparam0  = tparam.asInstanceOf[u.TypeDef]
       val badFlags = (Flag.COVARIANT | Flag.CONTRAVARIANT).asInstanceOf[Long]
-      u.copyTypeDef(tparam0)(mods = tparam0.mods & ~badFlags)
+      val fixedMods = tparam0.mods & ~badFlags
+      TypeDef(fixedMods.asInstanceOf[c.universe.Modifiers], tparam.name, tparam.tparams, tparam.rhs)
     }
 
     def trace(s: => String) = {
