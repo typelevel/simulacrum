@@ -21,7 +21,7 @@ lazy val commonSettings = Seq(
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
   ),
-  addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0-M5" cross CrossVersion.full),
+  addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo <<= version { v: String =>
     val nexus = "https://oss.sonatype.org/"
@@ -93,7 +93,7 @@ lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
 lazy val examples = crossProject.crossType(CrossType.Pure)
-  .dependsOn(core)
+  .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
   .settings(noPublishSettings: _*)
