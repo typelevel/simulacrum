@@ -3,16 +3,30 @@ import com.typesafe.tools.mima.core._
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys._
 
+def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: String*): Seq[String] = {
+  case class ScalaBinaryVersion(major: Int, minor: Int) extends Ordered[ScalaBinaryVersion] {
+    def compare(that: ScalaBinaryVersion) = Ordering[(Int, Int)].compare((this.major, this.minor), (that.major, that.minor))
+  }
+  val Pattern = """(\d+)\.(\d+).*""".r
+  def getScalaBinaryVersion(v: String) = v match { case Pattern(major, minor) => ScalaBinaryVersion(major.toInt, minor.toInt) }
+  if (getScalaBinaryVersion(scalaBinaryVersion) >= getScalaBinaryVersion(atLeastVersion)) options
+  else Seq.empty
+}
+
 lazy val commonSettings = Seq(
   organization := "com.github.mpilquist",
   scalacOptions ++= Seq(
     "-deprecation",
     "-feature",
     "-language:higherKinds",
-    "-language:implicitConversions",
+    "-language:implicitConversions"
+  ) ++ ifAtLeast(scalaBinaryVersion.value, "2.11.0")(
     "-Xfatal-warnings",
     "-Ywarn-unused-import"
   ),
+  scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
+  scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
+  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := "2.11.7",
   crossScalaVersions := Seq("2.10.5", "2.11.7"),
   resolvers ++= Seq(
@@ -130,3 +144,4 @@ lazy val noPublishSettings = Seq(
   publishLocal := (),
   publishArtifact := false
 )
+
