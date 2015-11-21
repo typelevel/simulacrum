@@ -2,22 +2,38 @@ package simulacrum
 
 import org.scalatest.{ WordSpec, Matchers }
 
+@typeclass trait Semigroup[T] {
+  def append(x: T, y: T): T
+  def appendCurried(x: T)(y: T): T = append(x, y)
+}
+
+object Semigroup {
+  implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
+    def append(x: Int, y: Int) = x + y
+  }
+}
+
+@typeclass trait Functor[F[_]] {
+  def map[A, B](fa: F[A])(f: A => B): F[B]
+  def as[A, B](fa: F[A], b: => B): F[B] = map(fa)(_ => b)
+  def lift[A, B](f: A => B): F[A] => F[B] = map(_)(f)
+  def foo[G[_], A](fga: F[G[A]]): G[F[A]] = ???
+}
+
+object Functor {
+  implicit val functorList: Functor[List] = new Functor[List] {
+    def map[A, B](fa: List[A])(f: A => B) = fa.map(f)
+  }
+}
+
 class TypeClassTest extends WordSpec with Matchers {
 
   "the @typeclass annotation" should {
 
     "support type classes that are polymorphic over a proper type," which {
-      @typeclass trait Semigroup[T] {
-        def append(x: T, y: T): T
-        def appendCurried(x: T)(y: T): T = append(x, y)
-      }
-
-      implicit val semigroupInt: Semigroup[Int] = new Semigroup[Int] {
-        def append(x: Int, y: Int) = x + y
-      }
 
       "generates an implicit summoning method in companion" in {
-        Semigroup[Int] shouldBe semigroupInt
+        Semigroup[Int] shouldBe Semigroup.semigroupInt
       }
 
       "generates object oriented style forwarding methods" in {
@@ -168,19 +184,9 @@ class TypeClassTest extends WordSpec with Matchers {
     }
 
     "support type classes that are polymorphic over a type constructor," which {
-      @typeclass trait Functor[F[_]] {
-        def map[A, B](fa: F[A])(f: A => B): F[B]
-        def as[A, B](fa: F[A], b: => B): F[B] = map(fa)(_ => b)
-        def lift[A, B](f: A => B): F[A] => F[B] = map(_)(f)
-        def foo[G[_], A](fga: F[G[A]]): G[F[A]] = ???
-      }
-
-      implicit val functorList: Functor[List] = new Functor[List] {
-        def map[A, B](fa: List[A])(f: A => B) = fa.map(f)
-      }
 
       "generates an implicit summoning method in companion" in {
-        Functor[List] shouldBe functorList
+        Functor[List] shouldBe Functor.functorList
       }
 
       "generates object oriented style forwarding methods" in {

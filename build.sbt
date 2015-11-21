@@ -82,6 +82,9 @@ lazy val core = crossProject.crossType(CrossType.Pure)
     libraryDependencies += "org.typelevel" %% "macro-compat" % "1.1.0"
   )
   .settings(scalaMacroDependencies:_*)
+  .jsSettings(
+    excludeFilter in (Test, unmanagedSources) := "jvm.scala"
+  )
   .jvmSettings(mimaDefaultSettings: _*)
   .jvmSettings(
     previousArtifact := previousVersion(version.value) map { pv =>

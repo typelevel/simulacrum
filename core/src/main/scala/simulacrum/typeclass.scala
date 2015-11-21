@@ -379,7 +379,10 @@ class TypeClassMacros(val c: Context) {
             q"${filterSimulacrumAnnotations(mods)} def $name[..$tparams](...$vparamss): $tpt = $rhs"
           case other => other
         }
-        val filteredImpl = Template(typeClass.impl.parents, typeClass.impl.self, filteredBody)
+        val modifiedParents = {
+          typeClass.impl.parents :+ tq"_root_.scala.Serializable"
+        }
+        val filteredImpl = Template(modifiedParents, typeClass.impl.self, filteredBody)
         ClassDef(filterSimulacrumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
       }
 
