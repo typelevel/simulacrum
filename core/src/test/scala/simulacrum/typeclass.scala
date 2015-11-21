@@ -290,5 +290,34 @@ class TypeClassTest extends WordSpec with Matchers {
       @typeclass trait Foo[F[_]]
       @exports object Foo
     }
+
+    /** It'd be a lot better to parameterize all the tests over the variance
+     *  of the type parameter so they can all be run again, but I"m not sure
+     *  how to do it.
+     */
+    "support variant type classes" which {
+      "are covariant" in {
+        @typeclass trait Empty[+A] {
+          def empty: A
+        }
+        @typeclass trait Empty1[+A] extends Empty[A] {
+          def empty2[A1 >: A]: A1
+        }
+        @typeclass trait Empty2[A] extends Empty[A] {  // invariant
+          def id(x: A): A
+        }
+      }
+      "are contravariant" in {
+        @typeclass trait Order[-A] {
+          def cmp(x: A, y: A): Boolean
+        }
+        @typeclass trait Order1[-A] extends Order[A] {
+          def cmp2[A1 <: A](x: A1, y: A1): Boolean
+        }
+        @typeclass trait Order2[A] extends Order[A] { // invariant
+          def id(x: A): A
+        }
+      }
+    }
   }
 }

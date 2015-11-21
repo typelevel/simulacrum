@@ -55,6 +55,16 @@ class TypeClassMacros(val c: Context) {
 
   def generateTypeClass(annottees: c.Expr[Any]*): c.Expr[Any] = {
 
+    /** Can't have variant modifiers on method type parameters.
+     */
+    def eliminateVariance(tparam: TypeDef): TypeDef = {
+      // If there's another way to do this I'm afraid I don't know it.
+      val u        = c.universe.asInstanceOf[c.universe.type with scala.reflect.internal.SymbolTable]
+      val tparam0  = tparam.asInstanceOf[u.TypeDef]
+      val badFlags = (Flag.COVARIANT | Flag.CONTRAVARIANT).asInstanceOf[Long]
+      u.copyTypeDef(tparam0)(mods = tparam0.mods & ~badFlags)
+    }
+
     def trace(s: => String) = {
       // Macro paradise seems to always output info statements, even without -verbose
       if (sys.props.get("simulacrum.trace").isDefined) c.info(c.enclosingPosition, s, false)
@@ -235,7 +245,7 @@ class TypeClassMacros(val c: Context) {
 
     def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]): (ClassDef, Set[TypeName]) = {
       val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
-      val tparams = List(tparam) ++ liftedTypeArg
+      val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArg
       val tparamNames = tparams.map { _.name }
       val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
 
@@ -272,7 +282,8 @@ class TypeClassMacros(val c: Context) {
       }"""
     }
 
-    def generateCompanion(typeClass: ClassDef, tparam: TypeDef, proper: Boolean, comp: Tree) = {
+    def generateCompanion(typeClass: ClassDef, tparam0: TypeDef, proper: Boolean, comp: Tree) = {
+      val tparam = eliminateVariance(tparam0)
       val summoner = q"def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
       val liftedTypeArg = if (proper) None else Some {
@@ -304,7 +315,7 @@ class TypeClassMacros(val c: Context) {
       val allOpsTrait = generateAllOps(typeClass, tcInstanceName, tparam, liftedTypeArg)
 
       def generateOpsImplicitConversion(opsType: TypeName, methodName: TermName) = {
-        val tparams = List(tparam) ++ liftedTypeArg
+        val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArg
         val tparamNames = tparams.map(_.name)
         val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
         q"""
