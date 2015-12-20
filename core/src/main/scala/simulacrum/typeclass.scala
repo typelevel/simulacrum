@@ -6,6 +6,7 @@ import scala.reflect.macros.whitebox.Context
 
 import macrocompat._
 
+
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
  *
@@ -298,7 +299,17 @@ class TypeClassMacros(val c: Context) {
 
     def generateCompanion(typeClass: ClassDef, tparam0: TypeDef, proper: Boolean, comp: Tree) = {
       val tparam = eliminateVariance(tparam0)
-      val summoner = q"def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
+
+      // The apply method uses the imp macro to summon the appropriate instance, but as imp is a
+      // macro itself, an import is required in the generated tree to allow the macro to be called
+      // in the generated tree.
+      val summonerImports = q"""
+        import scala.language.experimental.macros
+        """
+
+      val summoner = q"""
+        def apply[$tparam](implicit ev: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] =
+          macro imp.summon[${typeClass.name}[${tparam.name}]]"""
 
       val liftedTypeArg = if (proper) None else Some {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
@@ -359,6 +370,7 @@ class TypeClassMacros(val c: Context) {
       val companion = q"""
         $mods object $name extends ..$bases {
           ..$body
+          $summonerImports
           $summoner
           ..$opsMembers
         }
