@@ -35,7 +35,7 @@ lazy val commonSettings = Seq(
   ),
   libraryDependencies ++= Seq(
     "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test",
-    "org.spire-math" %% "imp" % "0.2.0"
+    "org.spire-math" %% "imp" % "0.2.0" % "provided"
   ),
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
