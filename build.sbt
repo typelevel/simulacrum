@@ -34,8 +34,7 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("snapshots")
   ),
   libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test",
-    "org.spire-math" %% "imp" % "0.2.0" % "provided"
+    "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
   ),
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
@@ -145,3 +144,4 @@ lazy val noPublishSettings = Seq(
   publishLocal := (),
   publishArtifact := false
 )
+
