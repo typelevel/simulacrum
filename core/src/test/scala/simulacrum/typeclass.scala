@@ -182,6 +182,19 @@ class TypeClassTest extends WordSpec with Matchers {
           def foo: A
         }
       }
+
+      "support importing only the non-inherited ops" in {
+        @typeclass trait Foo[A] { def foo(a: A): A }
+        @typeclass trait Bar[A] extends Foo[A] { def bar(a: A): A }
+
+        import Bar.nonInheritedOps._
+        implicit val intBar: Bar[Int] = new Bar[Int] {
+          def foo(a: Int) = -a
+          def bar(a: Int) = -a
+        }
+        5.bar shouldBe -5
+        "5.foo" shouldNot compile
+      }
     }
 
     "support type classes that are polymorphic over a type constructor," which {

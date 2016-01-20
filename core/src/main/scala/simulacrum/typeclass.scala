@@ -344,13 +344,18 @@ class TypeClassMacros(val c: Context) {
         q"trait $toOpsTraitName { $method }"
       }
 
+      val nonInheritedOpsConversion = {
+        val method = generateOpsImplicitConversion(opsTrait.name, TermName(s"to${typeClass.name}Ops"))
+        q"object nonInheritedOps { $method }"
+      }
+
       val allOpsConversion = {
         val method = generateOpsImplicitConversion(TypeName("AllOps"), TermName(s"toAll${typeClass.name}Ops"))
         q"object ops { $method }"
       }
 
       val opsMembers: List[Tree] = {
-        val ops = List(opsTrait, toOpsTrait)
+        val ops = List(opsTrait, toOpsTrait, nonInheritedOpsConversion)
         val allOps = if (typeClassArguments.generateAllOps) List(allOpsTrait, allOpsConversion) else Nil
         ops ++ allOps
       }
