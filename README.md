@@ -38,6 +38,8 @@ object Semigroup {
     }
   }
 
+  object nonInheritedOps extends ToSemigroupOps
+
   trait AllOps[A] extends Ops[A] {
     def typeClassInstance: Semigroup[A]
   }
@@ -141,9 +143,9 @@ Note that the second approach will not include the `map` operation of its grandp
 This project supports Scala 2.10 and 2.11. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
-addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0-M5" cross CrossVersion.full)
+addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.5.0"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.6.1"
 ```
 
 To use the latest SNAPSHOT version, add the following:
@@ -153,7 +155,7 @@ resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/publi
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.6.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.7.0-SNAPSHOT"
 ```
 
 Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.

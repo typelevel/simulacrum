@@ -346,7 +346,7 @@ class TypeClassMacros(val c: Context) {
 
       val nonInheritedOpsConversion = {
         val method = generateOpsImplicitConversion(opsTrait.name, TermName(s"to${typeClass.name}Ops"))
-        q"object nonInheritedOps { $method }"
+        q"object nonInheritedOps extends ${toOpsTrait.name}"
       }
 
       val allOpsConversion = {
