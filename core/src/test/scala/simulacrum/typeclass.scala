@@ -303,6 +303,22 @@ class TypeClassTest extends WordSpec with Matchers {
         import Foo.ops._
         Option(Option(1)).bar
       }
+
+      "supports type inference for syntax for operations where the instance type is constrained" in {
+        @typeclass trait Ap[F[_]] {
+          def ap[A, B](ff: F[A => B])(fa: F[A]): F[B]
+        }
+
+        object Ap {
+          implicit val apOption: Ap[Option] = new Ap[Option] {
+            def ap[A, B](ff: Option[A => B])(fa: Option[A]): Option[B] = ff.flatMap(fa.map)
+          }
+        }
+
+        import Ap.ops._
+        val ff: Option[Int => String] = Some(_.toString)
+        ff.ap(Some(0)) shouldBe Some("0")
+      }
     }
 
     "support annotated companions" in {
