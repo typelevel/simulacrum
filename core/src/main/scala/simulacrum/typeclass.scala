@@ -199,7 +199,7 @@ class TypeClassMacros(val c: Context) {
               if (arg equalsStructure Ident(simpleArg)) {
                 (withRewrittenFirst, true)
               } else {
-                val typeEqualityType = tq"_root_.scala.Predef.=:=[${liftedTypeArg.name}, $arg]"
+                val typeEqualityType = tq"_root_.scala.Predef.<:<[${liftedTypeArg.name}, $arg]"
                 val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), typeEqualityType, EmptyTree)
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
