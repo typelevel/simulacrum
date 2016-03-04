@@ -3,6 +3,7 @@ package simulacrum
 import org.scalatest.{ WordSpec, Matchers }
 
 @typeclass trait Semigroup[T] {
+  @op("|+|", alias = true)
   def append(x: T, y: T): T
   def appendCurried(x: T)(y: T): T = append(x, y)
 }
@@ -123,8 +124,7 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        // We'd typically import these ops but -Ywarn-unused-imports won't let us
-        // import Sg.ops._
+        import Sg.ops._
         "1 append 2 shouldBe 3" shouldNot compile
         "1 foo 2 shouldBe 3" shouldNot compile
       }
@@ -416,6 +416,13 @@ class TypeClassTest extends WordSpec with Matchers {
 
     "generate universal traits by default" in {
       trait Foo[F[_]] extends Any with Functor[F]
+    }
+
+    "strip simulacrum annotations" in {
+      import scala.reflect.runtime.universe._
+      val tpe = weakTypeTag[Semigroup[Int]].tpe
+      tpe.typeSymbol.asClass.annotations shouldBe Nil
+      tpe.decl(TermName("append")).asMethod.annotations shouldBe Nil
     }
   }
 }

@@ -1,6 +1,6 @@
 package simulacrum
 
-import scala.annotation.StaticAnnotation
+import scala.annotation.{ compileTimeOnly, StaticAnnotation }
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
@@ -14,6 +14,7 @@ import macrocompat._
  * If `alias` is true, two methods are generated, one with the original name and one with the
  * specified name.
  */
+@compileTimeOnly("op annotation should have been removed by simulacrum but was not")
 class op(name: String, alias: Boolean = false) extends StaticAnnotation
 
 /**
@@ -21,6 +22,7 @@ class op(name: String, alias: Boolean = false) extends StaticAnnotation
  *
  * Doing so results in the method being excluded from the generated syntax ops type.
  */
+@compileTimeOnly("noop annotation should have been removed by simulacrum but was not")
 class noop() extends StaticAnnotation
 
 /**
@@ -45,6 +47,7 @@ class noop() extends StaticAnnotation
  * As a result, the ops can be used by either importing `MyTypeClass.ops._` or
  * by mixing `MyTypeClass.ToMyTypeClassOps` in to a type.
  */
+@compileTimeOnly("typeclass annotation should have been removed by simulacrum but was not")
 class typeclass(excludeParents: List[String] = Nil, generateAllOps: Boolean = true) extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
 }
@@ -124,12 +127,13 @@ class TypeClassMacros(val c: Context) {
     }
 
     def filterSimulacrumAnnotations(mods: Modifiers): Modifiers = {
-      val filteredAnnotations = mods.annotations.filter {
-        case q"new typeclass(..${_})" => false
-        case q"new op(..${_})" => false
-        case q"new noop(..${_})" => false
-        case q"new simulacrum.${_}(..${_})" => false
-        case other => true
+      val filteredAnnotations = mods.annotations.filter { ann =>
+        val typed = c.typecheck(ann)
+        typed.tpe.typeSymbol.fullName match {
+          case "simulacrum.op" => false
+          case "simulacrum.noop" => false
+          case _ => true
+        }
       }
       Modifiers(mods.flags, mods.privateWithin, filteredAnnotations)
     }

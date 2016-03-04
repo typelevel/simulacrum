@@ -21,7 +21,6 @@ lazy val commonSettings = Seq(
     "-language:higherKinds",
     "-language:implicitConversions"
   ) ++ ifAtLeast(scalaBinaryVersion.value, "2.11.0")(
-    "-Xfatal-warnings",
     "-Ywarn-unused-import"
   ),
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
@@ -34,7 +33,7 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("snapshots")
   ),
   libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.0-M7" % "test"
+    "org.scalatest" %%% "scalatest" % "3.0.0-M12" % "test"
   ),
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
