@@ -417,12 +417,5 @@ class TypeClassTest extends WordSpec with Matchers {
     "generate universal traits by default" in {
       trait Foo[F[_]] extends Any with Functor[F]
     }
-
-    "strip simulacrum annotations" in {
-      import scala.reflect.runtime.universe._
-      val tpe = weakTypeTag[Semigroup[Int]].tpe
-      tpe.typeSymbol.asClass.annotations shouldBe Nil
-      tpe.decl(TermName("append")).asMethod.annotations shouldBe Nil
-    }
   }
 }
