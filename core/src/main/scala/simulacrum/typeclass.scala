@@ -302,7 +302,7 @@ class TypeClassMacros(val c: Context) {
 
     def generateCompanion(typeClass: ClassDef, tparam0: TypeDef, proper: Boolean, comp: Tree) = {
       val tparam = eliminateVariance(tparam0)
-      val summoner = q"@inline def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
+      val summoner = q"@scala.inline def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
       val liftedTypeArg = if (proper) None else Some {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
