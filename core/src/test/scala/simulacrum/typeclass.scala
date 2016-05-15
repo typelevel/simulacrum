@@ -380,7 +380,7 @@ class TypeClassTest extends WordSpec with Matchers {
         }
         @typeclass trait Foldable[F[_]] {
           def reduce[A](fa: F[A])(f: (A, A) => A): A
-          def obtainDingo[A](fa: F[A])(implicit z: Bippoid[A]): (z.Bippy, A) = z.secretId -> reduce(fa)(z.append)
+          def obtainDingo[A](fa: F[A])(implicit z: Bippoid[A]): (z.Bippy, A) = (z.secretId, reduce(fa)(z.append))
         }
       }
       import typeClasses._

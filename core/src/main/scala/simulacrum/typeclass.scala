@@ -97,10 +97,13 @@ class TypeClassMacros(val c: Context) {
     }
 
     def determineOpsMethodName(sourceMethod: DefDef): List[TermName] = {
-      val suppress = sourceMethod.mods.annotations.collectFirst {
-        case q"new noop()" => ()
-        case q"new simulacrum.noop()" => ()
-      }.isDefined
+      val suppress = sourceMethod.mods.annotations.filter { ann =>
+        val typed = c.typecheck(ann)
+        typed.tpe.typeSymbol.fullName match {
+          case "simulacrum.noop" => true
+          case _ => false
+        }
+      }.nonEmpty
       if (suppress) Nil
       else {
         def genAlias(alias: String, rest: List[Tree]) = {
@@ -118,9 +121,14 @@ class TypeClassMacros(val c: Context) {
               List(aliasTermName)
           }
         }
-        val overrides = sourceMethod.mods.annotations.collect {
-          case q"new op(${Literal(Constant(alias: String))}, ..$rest)" => genAlias(alias, rest)
-          case q"new simulacrum.op(${Literal(Constant(alias: String))}, ..$rest)" => genAlias(alias, rest)
+        val overrides = sourceMethod.mods.annotations.flatMap { ann =>
+          val typed = c.typecheck(ann)
+          typed.tpe.typeSymbol.fullName match {
+            case "simulacrum.op" =>
+              val q"new ${_}(${Literal(Constant(alias: String))}, ..$rest)" = typed
+              List(genAlias(alias, rest))
+            case _ => Nil
+          }
         }
         if (overrides.isEmpty) List(sourceMethod.name.toTermName) else overrides.flatten
       }
@@ -280,9 +288,12 @@ class TypeClassMacros(val c: Context) {
     def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArg: Option[TypeDef]): ClassDef = {
       val tparams = List(tparam) ++ liftedTypeArg
       val tparamNames = tparams.map { _.name }
-      val tcargs = typeClass.mods.annotations.collectFirst {
-        case q"new typeclass(..${args})" => args
-        case q"new simulacrum.typeclass(..${args})" => args
+      val tcargs = typeClass.mods.annotations.flatMap { ann =>
+        val typed = c.typecheck(ann)
+        if (typed.tpe.typeSymbol.fullName == "simulacrum.typeclass") {
+          val q"new ${_}(..${args})" = typed
+          List(args)
+        } else Nil
       }
       val typeClassParents: List[TypeName] = typeClass.impl.parents.collect {
         case tq"${Ident(parentTypeClassTypeName)}[${_}]" => parentTypeClassTypeName.toTypeName
