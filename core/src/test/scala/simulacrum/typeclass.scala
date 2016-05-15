@@ -2,6 +2,14 @@ package simulacrum
 
 import org.scalatest.{ WordSpec, Matchers }
 
+// NB: These imports are because the tests are compiled with `-Yno-imports`, to
+//     ensure that simulacrum works in projects that use that flag.
+import java.lang.String
+import scala.{ Any, Boolean, Either, Int, Left, Nil, Option, Right, Some }
+import scala.Predef.{ ???, ArrowAssoc, identity, wrapString }
+import scala.collection.immutable.List
+import scala.util
+
 @typeclass trait Semigroup[T] {
   @op("|+|", alias = true)
   def append(x: T, y: T): T
@@ -124,7 +132,6 @@ class TypeClassTest extends WordSpec with Matchers {
           def append(x: Int, y: Int) = x + y
         }
 
-        import Sg.ops._
         "1 append 2 shouldBe 3" shouldNot compile
         "1 foo 2 shouldBe 3" shouldNot compile
       }

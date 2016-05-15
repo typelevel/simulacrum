@@ -93,7 +93,8 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
-    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.1.1"
+    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.1.1",
+    scalacOptions in (Test) += "-Yno-imports"
   )
   .settings(scalaMacroDependencies:_*)
   .jsSettings(
