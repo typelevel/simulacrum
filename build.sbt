@@ -85,7 +85,7 @@ lazy val root = project.in(file("."))
 def previousVersion(currentVersion: String): Option[String] = {
   val Version = """(\d+)\.(\d+)\.(\d+).*""".r
   val Version(x, y, z) = currentVersion
-  if (z == "0") Some(s"$x.${y.toInt - 1}.0")
+  if (z == "0") None
   else Some(s"$x.$y.${z.toInt - 1}")
 }
 
