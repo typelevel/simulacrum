@@ -120,6 +120,14 @@ class Examples extends WordSpec with Matchers {
       div(Maybe.just(1), Maybe.empty) shouldBe Maybe.empty
     }
 
+    "support type classes that are polymorphic over a binary type constructor" in {
+      @typeclass trait BiFunctor[F[_, _]] {
+        def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D]
+        def first[A, B, C](fab: F[A, B])(f: A => C): F[C, B]
+        def second[A, B, C](fab: F[A, B])(f: B => C): F[A, C]
+      }
+    }
+
     "support using ops from unrelated type classes in the same scope" in {
       @typeclass trait Equal[A] {
         @op("=#=") def equal(x: A, y: A): Boolean
