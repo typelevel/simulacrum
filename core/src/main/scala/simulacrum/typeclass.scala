@@ -170,9 +170,10 @@ class TypeClassMacros(val c: Context) {
       } yield DefDef(Modifiers(NoFlags), name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
-    def adaptMethodForAppliedType(tcInstanceName: TermName, tparamName: Name, method: DefDef, liftedTypeArg: TypeDef): List[DefDef] = {
+    def adaptMethodForAppliedType(tcInstanceName: TermName, tparamName: Name, method: DefDef, liftedTypeArgs: List[TypeDef]): List[DefDef] = {
       // Method should only be adapted if the first parameter in the first parameter list
       // is an F[X] for some (potentially applied) type X
+      //TODO: Make this work for multi!
       val TargetTypeName = tparamName
       (for {
         firstParamList <- method.vparamss.headOption.toList
@@ -193,12 +194,13 @@ class TypeClassMacros(val c: Context) {
           extract(arg)
         }
 
+        //TODO: Understand what simpleArg is!
         simpleArgOpt match {
           case None => Nil
           case Some(simpleArg) =>
 
             // Rewrites all occurrences of simpleArg to liftedTypeArg.name
-            val rewriteSimpleArg = new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArg.name)
+            val rewriteSimpleArg = new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArgs.head.name)
 
             val (paramssFixed, removeSimpleArgTParam) = {
               val withoutFirst = {
@@ -211,13 +213,18 @@ class TypeClassMacros(val c: Context) {
               if (arg equalsStructure Ident(simpleArg)) {
                 (withRewrittenFirst, true)
               } else {
-                val typeEqualityType = tq"_root_.scala.Predef.<:<[${liftedTypeArg.name}, $arg]"
-                val equalityEvidence = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), typeEqualityType, EmptyTree)
+                val equalityEvidences = liftedTypeArgs.foldLeft(0 -> List.empty[ValDef]) {
+                  case ((i, evs), largi) =>                 
+                    val tEq = tq"_root_.scala.Predef.<:<[${largi.name}, $arg]"
+                    val ev = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
+                    (i + 1) -> (ev :: evs)
+                }._2.reverse
+
                 val updatedParamss = {
                   if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
-                    withRewrittenFirst.init ++ List(equalityEvidence +: withRewrittenFirst.last)
+                    withRewrittenFirst.init ++ List(equalityEvidences ++ withRewrittenFirst.last)
                   else {
-                    withRewrittenFirst ++ List(List(equalityEvidence))
+                    withRewrittenFirst ++ List(equalityEvidences)
                   }
                 }
                 (updatedParamss, false)
@@ -244,23 +251,25 @@ class TypeClassMacros(val c: Context) {
       }).flatten
     }
 
-    def adaptMethods(typeClass: ClassDef, tcInstanceName: TermName, tparamName: Name, proper: Boolean, liftedTypeArg: Option[TypeDef]): List[DefDef] = {
+    def adaptMethods(typeClass: ClassDef, tcInstanceName: TermName, tparamName: Name, proper: Boolean, liftedTypeArgs: List[TypeDef]): List[DefDef] = {
       val typeClassMethods = typeClass.impl.children.collect {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
       }
       typeClassMethods.flatMap { method =>
         val adapted =
           if (proper) adaptMethodForProperType(tcInstanceName, tparamName, method)
-          else adaptMethodForAppliedType(tcInstanceName, tparamName, method, liftedTypeArg.get)
+          else adaptMethodForAppliedType(tcInstanceName, tparamName, method, liftedTypeArgs)
         adapted
       }
     }
 
-    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArg: Option[TypeDef]): (ClassDef, Set[TypeName]) = {
-      val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArg)
-      val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArg
+    def targetTypeTree(tparam: TypeDef, proper: Boolean, liftedTypeArgs: List[TypeDef]): Tree = if(proper) tq"${tparam.name}" else tq"""${tparam.name}[..${liftedTypeArgs.map(_.name)}]"""
+
+    def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArgs: List[TypeDef]): (ClassDef, Set[TypeName]) = {
+      val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArgs)
+      val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArgs
       val tparamNames = tparams.map { _.name }
-      val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
+      val targetType = targetTypeTree(tparam, proper, liftedTypeArgs)
       val shouldImportTcMembers = {
         val typeMembersOfTypeClass = typeClass.impl.children.collect { case t: TypeDef => t }
         typeMembersOfTypeClass.exists { td =>
@@ -285,8 +294,8 @@ class TypeClassMacros(val c: Context) {
       (opsTrait, reservedTypeNames)
     }
 
-    def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArg: Option[TypeDef]): ClassDef = {
-      val tparams = List(tparam) ++ liftedTypeArg
+    def generateAllOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, liftedTypeArgs: List[TypeDef]): ClassDef = {
+      val tparams = List(tparam) ++ liftedTypeArgs
       val tparamNames = tparams.map { _.name }
       val tcargs = typeClass.mods.annotations.flatMap { ann =>
         val typed = c.typecheck(ann)
@@ -315,7 +324,8 @@ class TypeClassMacros(val c: Context) {
       val tparam = eliminateVariance(tparam0)
       val summoner = q"@scala.inline def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
-      val liftedTypeArg = if (proper) None else Some {
+      //TODO: This part needs to be changed because we want to lift all type args!
+      val liftedTypeArgs = if (proper) List.empty[TypeDef] else {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
         // For example:
         // TypeDef(
@@ -323,30 +333,35 @@ class TypeClassMacros(val c: Context) {
         //     TypeDef(Modifiers(PARAM), typeNames.WILDCARD, List(), TypeBoundsTree(Ident(TypeName("Lower")), Ident(TypeName("Upper"))))
         //   ), TypeBoundsTree(EmptyTree, EmptyTree))
         val TypeDef(_, _, tparamtparams, _) = tparam
-        tparamtparams.find { _.name == typeNames.WILDCARD } match {
-          case None => c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed unary type constructor")
-          case Some(q"$mods type ${_}[..$tpps] = $rhs") =>
-            val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
-            val liftedTypeArgName = TypeName(c.freshName("lta"))
-            object rewriteWildcard extends Transformer {
-              override def transform(t: Tree): Tree = t match {
-                case Ident(typeNames.WILDCARD) => super.transform(Ident(liftedTypeArgName))
-                case other => super.transform(t)
+        val ftss = tparamtparams.filter(_.name == typeNames.WILDCARD)
+        if(ftss.isEmpty) 
+          c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed n-arity type constructor") 
+        else {
+          val liftedTypeArgName = TypeName(c.freshName(s"lta"))
+          ftss.foldLeft(0 -> List.empty[TypeDef]) {
+            case ((i, ts), q"$mods type ${_}[..$tpps] = $rhs") =>
+              val fixedMods = Modifiers(NoFlags, mods.privateWithin, mods.annotations)
+              val tname = TypeName(c.freshName(s"lta$i"))
+              object rewriteWildcard extends Transformer {
+                override def transform(t: Tree): Tree = t match {
+                  case Ident(typeNames.WILDCARD) => super.transform(Ident(tname))
+                  case _ => super.transform(t)
+                }
               }
-            }
-            rewriteWildcard.transformTypeDefs(List(TypeDef(fixedMods, liftedTypeArgName, tpps, rhs))).head
+              (i + 1) -> (rewriteWildcard.transformTypeDefs(List(TypeDef(fixedMods, tname, tpps, rhs))).head :: ts)
+          }._2.reverse
         }
-      }
+     }   
 
       val tcInstanceName = TermName("typeClassInstance")
 
-      val (opsTrait, opsReservedTParamNames) = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArg)
-      val allOpsTrait = generateAllOps(typeClass, tcInstanceName, tparam, liftedTypeArg)
+      val (opsTrait, opsReservedTParamNames) = generateOps(typeClass, tcInstanceName, tparam, proper, liftedTypeArgs)
+      val allOpsTrait = generateAllOps(typeClass, tcInstanceName, tparam, liftedTypeArgs)
 
       def generateOpsImplicitConversion(opsType: TypeName, methodName: TermName) = {
-        val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArg
+        val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArgs
         val tparamNames = tparams.map(_.name)
-        val targetType = liftedTypeArg.map(lta => tq"${tparam.name}[${lta.name}]").getOrElse(tq"${tparam.name}")
+        val targetType = targetTypeTree(tparam, proper, liftedTypeArgs)
         q"""
         implicit def $methodName[..$tparams](target: $targetType)(implicit tc: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames] =
           new $opsType[..$tparamNames] { val self = target; val $tcInstanceName = tc }
@@ -385,13 +400,14 @@ class TypeClassMacros(val c: Context) {
       """
 
       // Rewrite liftedTypeArg.name to something easier to read
-      liftedTypeArg.fold(companion: Tree) { lta =>
-        val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).toList
-        val newLiftedTypeArgName = potentialNames.find(nme => !(opsReservedTParamNames contains nme))
-        newLiftedTypeArgName.fold(companion: Tree) { newName =>
-          new RewriteTypeName(from = lta.name, to = newName).transform(companion)
-        }
-      }
+      val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).toList
+      liftedTypeArgs.foldLeft((companion: Tree) -> potentialNames) {
+        case ((prev, namesLeft), lta) =>         
+          val newLiftedTypeArgName = namesLeft.find(nme => !(opsReservedTParamNames contains nme))
+          newLiftedTypeArgName.fold(prev) { newName =>
+            new RewriteTypeName(from = lta.name, to = newName).transform(prev)
+          } -> namesLeft.tail
+      }._1
     }
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = {
@@ -400,15 +416,22 @@ class TypeClassMacros(val c: Context) {
           hd.tparams.size match {
             case 0 => (hd, true)
             case 1 => (hd, false)
+            case 2 => (hd, false)
             case n => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single proper type or type constructor")
           }
         case other => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
       }
 
+      val (tparam2, proper2) = typeClass.tparams match {
+        //TODO: Add fix for TC[F[_], A, B]
+        case hd :: Nil => (hd, hd.tparams.isEmpty)
+        case _ => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
+      }
+
       val modifiedTypeClass = {
         val filteredBody = typeClass.impl.body.map {
-          case q"$mods def $name[..$tparams](...$vparamss): $tpt = $rhs" =>
-            q"${filterSimulacrumAnnotations(mods)} def $name[..$tparams](...$vparamss): $tpt = $rhs"
+          case q"$mods def $name[..$tparamss](...$vparamss): $tpt = $rhs" =>
+            q"${filterSimulacrumAnnotations(mods)} def $name[..$tparamss](...$vparamss): $tpt = $rhs"
           case other => other
         }
         val modifiedParents = {
@@ -437,8 +460,7 @@ class TypeClassMacros(val c: Context) {
         $modifiedTypeClass
         $modifiedCompanion
       """)
-
-      trace(s"Generated type class ${typeClass.name}:\n" + showCode(result.tree))
+      println(s"Generated type class ${typeClass.name}:\n" + showCode(result.tree))
 
       result
     }
