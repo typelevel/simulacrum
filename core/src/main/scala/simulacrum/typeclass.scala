@@ -234,7 +234,7 @@ class TypeClassMacros(val c: Context) {
 
             val mtparamss = method.tparams.map(t => tq"""${t.name}""").map(rewriteSimpleArgs.transform)
 
-            val rhs = paramNamess.foldLeft(q"""$tcInstanceName.${method.name}[..$mtparamss]""": Tree) { (tree, paramNames) =>
+            val rhs = paramNamess.foldLeft(q"""$tcInstanceName.${method.name.toTermName}[..$mtparamss]""": Tree) { (tree, paramNames) =>
               Apply(tree, paramNames)
             }
 
