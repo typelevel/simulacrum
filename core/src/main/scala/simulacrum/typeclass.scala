@@ -82,6 +82,10 @@ class TypeClassMacros(val c: Context) {
       }
     }
 
+    class FoldTransformer(transformers: List[Transformer]) extends Transformer {
+      override def transform(t: Tree): Tree = super.transform(transformers.foldLeft(t)((prev, transformer) => transformer.transform(prev)))
+    }
+
     case class Arguments(parentsToExclude: Set[TypeName], generateAllOps: Boolean)
 
     val typeClassArguments: Arguments = c.prefix.tree match {
@@ -170,70 +174,61 @@ class TypeClassMacros(val c: Context) {
       } yield DefDef(Modifiers(NoFlags), name, method.tparams, paramssWithoutFirst, method.tpt, rhs)
     }
 
+    /** Adapts methods of the n order kind `F[A0, AN]` and method `def method[A0, AN, B](arg0: F[A0, AN], arg1, ...)` to def method[B](arg1, ...)*/
     def adaptMethodForAppliedType(tcInstanceName: TermName, tparamName: Name, method: DefDef, liftedTypeArgs: List[TypeDef]): List[DefDef] = {
-      // Method should only be adapted if the first parameter in the first parameter list
-      // is an F[X] for some (potentially applied) type X
-      //TODO: Make this work for multi!
       val TargetTypeName = tparamName
       (for {
         firstParamList <- method.vparamss.headOption.toList
         firstParam <- firstParamList.headOption.toList
-        AppliedTypeTree(Ident(TargetTypeName), arg :: Nil) <- Option(firstParam.tpt).toList
+        AppliedTypeTree(Ident(TargetTypeName), args) <- Option(firstParam.tpt).toList
         if !method.mods.hasFlag(Flag.OVERRIDE)
       } yield {
-
         val typeArgs = method.tparams.map { _.name }.toSet
 
-        val simpleArgOpt: Option[Name] = {
+        //Check if the first argument uses any of the typeargs of the method
+        val simpleArgs = {
           def extract(tree: Tree): Option[Name] = tree match {
             case Ident(name: TypeName) if typeArgs contains name => Some(name)
-            case tq"$ctor[..$targs]" =>
-              targs.foldLeft(None: Option[Name]) { (acc, targ) => extract(targ) }
-            case other => None
+            //for arguments of the form F[G[A]] where A is a typearg of the method
+            case tq"$_[..$targs]" => targs.foldLeft(Option.empty[Name]) { (_, targ) => extract(targ) }
+            case other => Option.empty
           }
-          extract(arg)
+          args.zipWithIndex.map { 
+            case (arg, idx) => 
+              val simpleArgOpt = extract(arg) 
+              (arg, simpleArgOpt, liftedTypeArgs(idx), simpleArgOpt.map(arg equalsStructure Ident(_)).getOrElse(false)) 
+            }
         }
 
-        //TODO: Understand what simpleArg is!
-        simpleArgOpt match {
-          case None => Nil
-          case Some(simpleArg) =>
+        val skipMethod = !simpleArgs.foldLeft(true)(_ && _._2.isDefined)
 
-            // Rewrites all occurrences of simpleArg to liftedTypeArg.name
-            val rewriteSimpleArg = new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArgs.head.name)
-
-            val (paramssFixed, removeSimpleArgTParam) = {
-              val withoutFirst = {
-                if (firstParamList.tail.isEmpty) method.vparamss.tail
-                else firstParamList.tail :: method.vparamss.tail
-              }
-              val withRewrittenFirst = withoutFirst map { _ map { param =>
-                ValDef(param.mods, param.name, rewriteSimpleArg.transform(param.tpt), rewriteSimpleArg.transform(param.rhs))
-              }}
-              if (arg equalsStructure Ident(simpleArg)) {
-                (withRewrittenFirst, true)
-              } else {
-                val equalityEvidences = liftedTypeArgs.foldLeft(0 -> List.empty[ValDef]) {
-                  case ((i, evs), largi) =>                 
-                    val tEq = tq"_root_.scala.Predef.<:<[${largi.name}, $arg]"
-                    val ev = ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
-                    (i + 1) -> (ev :: evs)
-                }._2.reverse
-
-                val updatedParamss = {
-                  if (withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
-                    withRewrittenFirst.init ++ List(equalityEvidences ++ withRewrittenFirst.last)
-                  else {
-                    withRewrittenFirst ++ List(equalityEvidences)
-                  }
-                }
-                (updatedParamss, false)
-              }
-            }
+        if(skipMethod) List.empty else {
+          //rewrites all occurences of any of the args which are defined on the method to the lifted arg
+          val rewriteSimpleArgs = new FoldTransformer(simpleArgs.foldLeft(List.empty[Transformer]) {
+            case (ts, (_, Some(simpleArg), liftedTypeArg, _)) => new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArg.name) :: ts
+          })
+          //evidence for type args which are nested
+          val equalityEvidences = simpleArgs.filterNot(_._4).map {
+            case (arg, _, liftedTypeArg, _) =>                     
+              val tEq = tq"_root_.scala.Predef.<:<[${liftedTypeArg.name}, $arg]"
+              ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
+          }
+          //params to strip from method signature because they are defined on 
+          val removeTParams = simpleArgs.foldLeft(List.empty[Name])((b, a) => a._2.map(_ :: b).getOrElse(b)).toSet
+          val withoutFirst = if (firstParamList.tail.isEmpty) method.vparamss.tail else firstParamList.tail :: method.vparamss.tail
+          val withRewrittenFirst = withoutFirst map { _ map { param =>
+            ValDef(param.mods, param.name, rewriteSimpleArgs.transform(param.tpt), rewriteSimpleArgs.transform(param.rhs))
+          }}
+          
+          val paramssFixed = if(equalityEvidences.isEmpty) withRewrittenFirst else {
+            if(withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
+              withRewrittenFirst.init ++ List(equalityEvidences ++ withRewrittenFirst.last)
+            else withRewrittenFirst ++ List(equalityEvidences)
+          }
 
             val paramNamess: List[List[Tree]] = {
               val original = method.vparamss map { _ map { p => Ident(p.name) } }
-              val replacement = if (removeSimpleArgTParam) q"self" else q"self.asInstanceOf[${tparamName.toTypeName}[$arg]]"
+              val replacement = if (equalityEvidences.isEmpty) q"self" else q"self.asInstanceOf[${tparamName.toTypeName}[..$args]]"
               original.updated(0, original(0).updated(0, replacement))
             }
 
@@ -241,13 +236,13 @@ class TypeClassMacros(val c: Context) {
               Apply(tree, paramNames)
             }
 
-            val fixedTParams = if (removeSimpleArgTParam) method.tparams.filter { _.name != simpleArg } else method.tparams
+            val fixedTParams = method.tparams.filter { tparam => !simpleArgs.contains(tparam.name) }
 
             determineOpsMethodName(method) map { name =>
               // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
               q"def $name[..$fixedTParams](...$paramssFixed) = $rhs"
             }
-        }
+          }
       }).flatten
     }
 
@@ -400,13 +395,12 @@ class TypeClassMacros(val c: Context) {
       """
 
       // Rewrite liftedTypeArg.name to something easier to read
-      val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).toList
+      val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).filter(nme => !opsReservedTParamNames.contains(nme))
+
       liftedTypeArgs.foldLeft((companion: Tree) -> potentialNames) {
         case ((prev, namesLeft), lta) =>         
-          val newLiftedTypeArgName = namesLeft.find(nme => !(opsReservedTParamNames contains nme))
-          newLiftedTypeArgName.fold(prev) { newName =>
-            new RewriteTypeName(from = lta.name, to = newName).transform(prev)
-          } -> namesLeft.tail
+          val newName = namesLeft.head
+          new RewriteTypeName(from = lta.name, to = newName).transform(prev) -> namesLeft.tail
       }._1
     }
 
@@ -460,7 +454,7 @@ class TypeClassMacros(val c: Context) {
         $modifiedTypeClass
         $modifiedCompanion
       """)
-      println(s"Generated type class ${typeClass.name}:\n" + showCode(result.tree))
+      trace(s"Generated type class ${typeClass.name}:\n" + showCode(result.tree))
 
       result
     }
