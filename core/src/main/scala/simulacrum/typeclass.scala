@@ -319,7 +319,6 @@ class TypeClassMacros(val c: Context) {
       val tparam = eliminateVariance(tparam0)
       val summoner = q"@scala.inline def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
 
-      //TODO: This part needs to be changed because we want to lift all type args!
       val liftedTypeArgs = if (proper) List.empty[TypeDef] else {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
         // For example:
@@ -406,18 +405,6 @@ class TypeClassMacros(val c: Context) {
 
     def modify(typeClass: ClassDef, companion: Option[ModuleDef]) = {
       val (tparam, proper) = typeClass.tparams match {
-        case hd :: Nil =>
-          hd.tparams.size match {
-            case 0 => (hd, true)
-            case 1 => (hd, false)
-            case 2 => (hd, false)
-            case n => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single proper type or type constructor")
-          }
-        case other => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
-      }
-
-      val (tparam2, proper2) = typeClass.tparams match {
-        //TODO: Add fix for TC[F[_], A, B]
         case hd :: Nil => (hd, hd.tparams.isEmpty)
         case _ => c.abort(c.enclosingPosition, "@typeclass may only be applied to types that take a single type parameter")
       }
