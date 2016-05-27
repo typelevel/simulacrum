@@ -180,7 +180,7 @@ class Examples extends WordSpec with Matchers {
 
     "strip type arguments from ops" in {
       import Function1Strong._
-      (fab.first[String] apply (42 -> 1)) shouldBe ("World", "Hello")
+      (fab.first[String] apply (42 -> "Hello")) shouldBe ("World", "Hello")
     }
 
     "support using ops from unrelated type classes in the same scope" in {
