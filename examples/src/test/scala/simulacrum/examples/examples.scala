@@ -131,15 +131,38 @@ class Examples extends WordSpec with Matchers {
     object TupleBifunctor {
       implicit val instance: Bifunctor[Tuple2] = new Bifunctor[Tuple2] {
         def bimap[A, B, C, D](fab: (A, B))(f: A => C, g: B => D): (C, D) = fab match {
-          case (a, c) => (f(a), g(c))
+          case (a, b) => (f(a), g(b))
         }
       }
     }
 
+    @typeclass trait Trifunctor[F[_, _, _]] {
+      def trimap[A, B, C, D, E, G](fabc: F[A, B, C])(f: A => D, g: B => E, h: C => G): F[D, E, G]
+      def first[A, B, C, D](fabc: F[A, B, C])(f: A => D): F[D, B, C] = trimap(fabc)(f, identity, identity)
+      def second[A, B, C, D](fabc: F[A, B, C])(f: B => D): F[A, D, C] = trimap(fabc)(identity, f, identity)
+      def third[A, B, C, D](fabc: F[A, B, C])(f: C => D): F[A, B, D] = trimap(fabc)(identity, identity, f)
+    }
+
+    import Trifunctor.ops._
+
+    object TupleTrifunctor {
+      implicit val instance: Trifunctor[Tuple3] = new Trifunctor[Tuple3] {
+        def trimap[A, B, C, D, E, G](fabc: (A, B, C))(f: A => D, g: B => E, h: C => G): (D, E, G) = fabc match {
+          case (a, b, c) => (f(a), g(b), h(c))
+        }
+      }
+    }
+
+    val fab = (_: Int) => "World"
+
     "support type classes that are polymorphic over a binary type constructor" in {
       import TupleBifunctor._
-      val fab = (_: Int) => "World"
       (("Hello", 42) second fab) shouldBe ("Hello", "World")
+    }
+
+    "support type classes that are polymorphic over a tertiary type constructor" in {
+      import TupleTrifunctor._
+      (("Hello", "World", 42) third fab) shouldBe ("Hello", "World", "World")
     }
 
     "support using ops from unrelated type classes in the same scope" in {
