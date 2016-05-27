@@ -232,7 +232,7 @@ class TypeClassMacros(val c: Context) {
               original.updated(0, original(0).updated(0, replacement))
             }
 
-            val mtparamss = method.tparams.map(t => tq"""${t.name}""").map(rewriteSimpleArgs.transform)
+            val mtparamss = if(equalityEvidences.isEmpty) method.tparams.map(t => tq"""${t.name}""").map(rewriteSimpleArgs.transform) else Nil
 
             val rhs = paramNamess.foldLeft(q"""$tcInstanceName.${method.name.toTermName}[..$mtparamss]""": Tree) { (tree, paramNames) =>
               Apply(tree, paramNames)
