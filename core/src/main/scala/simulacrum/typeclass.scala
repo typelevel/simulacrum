@@ -214,7 +214,7 @@ class TypeClassMacros(val c: Context) {
               ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
           }
           //params to strip from method signature because they are defined on 
-          val removeTParams = simpleArgs.foldLeft(List.empty[Name])((b, a) => a._2.map(_ :: b).getOrElse(b)).toSet
+          val removeTParams = simpleArgs.filter(_._4).map(_._2.get).toSet
           val withoutFirst = if (firstParamList.tail.isEmpty) method.vparamss.tail else firstParamList.tail :: method.vparamss.tail
           val withRewrittenFirst = withoutFirst map { _ map { param =>
             ValDef(param.mods, param.name, rewriteSimpleArgs.transform(param.tpt), rewriteSimpleArgs.transform(param.rhs))
@@ -232,11 +232,13 @@ class TypeClassMacros(val c: Context) {
               original.updated(0, original(0).updated(0, replacement))
             }
 
-            val rhs = paramNamess.foldLeft(Select(Ident(tcInstanceName), method.name): Tree) { (tree, paramNames) =>
+            val mtparamss = method.tparams.map(t => tq"""${t.name}""").map(rewriteSimpleArgs.transform)
+
+            val rhs = paramNamess.foldLeft(q"""$tcInstanceName.${method.name.toTermName}[..$mtparamss]""": Tree) { (tree, paramNames) =>
               Apply(tree, paramNames)
             }
 
-            val fixedTParams = method.tparams.filter { tparam => !simpleArgs.contains(tparam.name) }
+            val fixedTParams = method.tparams.filter { tparam => !removeTParams.contains(tparam.name) }
 
             determineOpsMethodName(method) map { name =>
               // Important: let the return type be inferred here, so the return type doesn't need to be rewritten
