@@ -120,7 +120,6 @@ class Examples extends WordSpec with Matchers {
       div(Maybe.just(1), Maybe.empty) shouldBe Maybe.empty
     }
 
-    //TODO: Move this shape out
     @typeclass trait Bifunctor[F[_, _]] {
       def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D]
       def first[A, B, C](fab: F[A, B])(f: A => C): F[C, B] = bimap(fab)(f, identity)
