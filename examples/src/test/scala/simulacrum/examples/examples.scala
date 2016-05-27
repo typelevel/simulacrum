@@ -120,6 +120,7 @@ class Examples extends WordSpec with Matchers {
       div(Maybe.just(1), Maybe.empty) shouldBe Maybe.empty
     }
 
+    //TODO: Move this shape out
     @typeclass trait Bifunctor[F[_, _]] {
       def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D]
       def first[A, B, C](fab: F[A, B])(f: A => C): F[C, B] = bimap(fab)(f, identity)
@@ -153,6 +154,18 @@ class Examples extends WordSpec with Matchers {
       }
     }
 
+    @typeclass trait Strong[F[_, _]] {
+      def first[A, B, C](fa: F[A, B]): F[(A, C), (B, C)]
+    }
+
+    object Function1Strong {
+      implicit val instance: Strong[Function1] = new Strong[Function1] {
+        def first[A, B, C](f: A => B): ((A, C)) => (B, C) = (ac: ((A, C))) =>  f(ac._1) -> ac._2
+      }
+    }
+
+    import Strong.ops._
+
     val fab = (_: Int) => "World"
 
     "support type classes that are polymorphic over a binary type constructor" in {
@@ -163,6 +176,11 @@ class Examples extends WordSpec with Matchers {
     "support type classes that are polymorphic over a tertiary type constructor" in {
       import TupleTrifunctor._
       (("Hello", "World", 42) third fab) shouldBe ("Hello", "World", "World")
+    }
+
+    "strip type arguments from ops" in {
+      import Function1Strong._
+      (fab.first[String] apply (42 -> 1)) shouldBe ("World", "Hello")
     }
 
     "support using ops from unrelated type classes in the same scope" in {
