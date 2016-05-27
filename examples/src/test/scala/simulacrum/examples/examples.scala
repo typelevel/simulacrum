@@ -120,6 +120,28 @@ class Examples extends WordSpec with Matchers {
       div(Maybe.just(1), Maybe.empty) shouldBe Maybe.empty
     }
 
+    @typeclass trait Bifunctor[F[_, _]] {
+      def bimap[A, B, C, D](fab: F[A, B])(f: A => C, g: B => D): F[C, D]
+      def first[A, B, C](fab: F[A, B])(f: A => C): F[C, B] = bimap(fab)(f, identity)
+      def second[A, B, C](fab: F[A, B])(f: B => C): F[A, C] = bimap(fab)(identity, f)
+    }
+
+    import Bifunctor.ops._
+
+    object TupleBifunctor {
+      implicit val instance: Bifunctor[Tuple2] = new Bifunctor[Tuple2] {
+        def bimap[A, B, C, D](fab: (A, B))(f: A => C, g: B => D): (C, D) = fab match {
+          case (a, c) => (f(a), g(c))
+        }
+      }
+    }
+
+    "support type classes that are polymorphic over a binary type constructor" in {
+      import TupleBifunctor._
+      val fab = (_: Int) => "World"
+      (("Hello", 42) second fab) shouldBe ("Hello", "World")
+    }
+
     "support using ops from unrelated type classes in the same scope" in {
       @typeclass trait Equal[A] {
         @op("=#=") def equal(x: A, y: A): Boolean
