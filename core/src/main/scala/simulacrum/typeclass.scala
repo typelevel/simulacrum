@@ -190,7 +190,7 @@ class TypeClassMacros(val c: Context) {
           def extract(tree: Tree): Option[Name] = tree match {
             case Ident(name: TypeName) if typeArgs contains name => Some(name)
             //for arguments of the form F[G[A]] where A is a typearg of the method
-            case tq"$_[..$targs]" => targs.foldLeft(Option.empty[Name]) { (_, targ) => extract(targ) }
+            case tq"$ctor[..$targs]" => targs.foldLeft(Option.empty[Name]) { (_, targ) => extract(targ) }
             case other => Option.empty
           }
           args.zipWithIndex.map { 
