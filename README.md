@@ -158,7 +158,7 @@ addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.fu
 libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.8.0-SNAPSHOT"
 ```
 
-Macro paradise must exist in projects which use `@typeclass`, but code that dependencies on the generated type classes do not need macro paradise.
+Macro paradise must exist in projects which use `@typeclass`, but code that depends on the generated type classes do not need macro paradise.
 
 Feedback is much appreciated. The generated code is a result of working with project leads of a variety of open source projects that use type classes. However, there's certainly room for improvement, so please open issues or PRs containing feedback.
 
