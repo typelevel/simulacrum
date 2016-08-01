@@ -33,7 +33,7 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("snapshots")
   ),
   libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.0-M16-SNAP4" % "test"
+    "org.scalatest" %%% "scalatest" % "3.0.0-RC4" % "test"
   ),
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
