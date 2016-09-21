@@ -358,7 +358,13 @@ class TypeClassMacros(val c: Context) {
         val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArgs
         val tparamNames = tparams.map(_.name)
         val targetType = targetTypeTree(tparam, proper, liftedTypeArgs)
+        // Suppressing `ImplicitConversion` is probably necessary, but it should
+        // be possible to avoid `ExplicitImplicitTypes` (see
+        // puffnfresh/wartremover#226).
         q"""
+        @java.lang.SuppressWarnings(scala.Array(
+          "org.wartremover.warts.ExplicitImplicitTypes",
+          "org.wartremover.warts.ImplicitConversion"))
         implicit def $methodName[..$tparams](target: $targetType)(implicit tc: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames] =
           new $opsType[..$tparamNames] { val self = target; val $tcInstanceName = tc }
         """
