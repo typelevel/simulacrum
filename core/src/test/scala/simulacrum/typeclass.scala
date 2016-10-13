@@ -6,7 +6,7 @@ import org.scalatest.{ WordSpec, Matchers }
 //     ensure that simulacrum works in projects that use that flag.
 import java.lang.String
 import scala.{ Any, Boolean, Either, Int, Left, Nil, Option, Right, Some }
-import scala.Predef.{ ???, ArrowAssoc, identity, wrapString }
+import scala.Predef.{ ???, identity, wrapString }
 import scala.collection.immutable.List
 import scala.util
 
@@ -157,7 +157,7 @@ class TypeClassTest extends WordSpec with Matchers {
           override def op(x: A): A = baz(x)
         }
         @typeclass trait Qux[A] extends Bar[A] with Baz[A] { def qux(x: A): A }
-        implicit val qint = new Qux[Int] {
+        implicit val qint: Qux[Int] = new Qux[Int] {
           def bar(x: Int) = x
           def baz(x: Int) = -x
           def qux(x: Int) = x * 2
@@ -292,7 +292,7 @@ class TypeClassTest extends WordSpec with Matchers {
 
       "lifted type argument in return type is rewritten correctly" in {
         @typeclass trait Foo[F[_]] { def toEither[A](fa: F[A]): Either[String, A] }
-        implicit val listFoo = new Foo[List] { def toEither[A](fa: List[A]) = if (fa.isEmpty) Left("empty") else Right(fa.head) }
+        implicit val listFoo: Foo[List] = new Foo[List] { def toEither[A](fa: List[A]) = if (fa.isEmpty) Left("empty") else Right(fa.head) }
         import Foo.ops._
         Nil.toEither shouldBe Left("empty")
       }
@@ -385,13 +385,15 @@ class TypeClassTest extends WordSpec with Matchers {
       }
       import typeClasses._
 
-      implicit val intBippoid = new Bippoid[Int] {
-        type Bippy = Dingo
-        def append(x: Int, y: Int) = x + y
-        def secretId = Dingo(5)
-        def fn(x: Bippy) = x.x
-      }
-      implicit val foldInstance = new Foldable[List] {
+      // NB: Having an explicit type here breaks the associated type usage.
+      implicit val intBippoid: Bippoid[Int] { type Bippy = Dingo } =
+        new Bippoid[Int] {
+          type Bippy = Dingo
+          def append(x: Int, y: Int) = x + y
+          def secretId = Dingo(5)
+          def fn(x: Bippy) = x.x
+        }
+      implicit val foldInstance: Foldable[List] = new Foldable[List] {
         def reduce[A](fa: List[A])(f: (A, A) => A): A = fa reduceLeft f
       }
 

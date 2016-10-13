@@ -74,8 +74,10 @@ lazy val commonSettings = Seq(
   releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   useGpg := true,
-  useGpgAgent := true
-)
+  useGpgAgent := true,
+  wartremoverErrors in (Test, compile) ++= Seq(
+    Wart.ExplicitImplicitTypes,
+    Wart.ImplicitConversion))
 
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
