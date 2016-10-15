@@ -145,7 +145,7 @@ This project supports Scala 2.10 and 2.11. The project is based on macro paradis
 ```scala
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.8.0"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.9.0"
 ```
 
 To use the latest SNAPSHOT version, add the following:
@@ -155,7 +155,7 @@ resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/publi
 
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.9.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.10.0-SNAPSHOT"
 ```
 
 Macro paradise must exist in projects which use `@typeclass`, but code that depends on the generated type classes do not need macro paradise.
