@@ -1,7 +1,5 @@
 import sbtrelease._
 import com.typesafe.tools.mima.core._
-import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.plugin.MimaKeys._
 
 def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: String*): Seq[String] = {
   case class ScalaBinaryVersion(major: Int, minor: Int) extends Ordered[ScalaBinaryVersion] {
@@ -27,7 +25,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.0-RC1"),
+  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.0-RC2"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -102,7 +100,6 @@ lazy val core = crossProject.crossType(CrossType.Pure)
   .jsSettings(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
-  .jvmSettings(mimaDefaultSettings: _*)
   .jvmSettings(
     previousArtifact := previousVersion(version.value) map { pv =>
       organization.value % ("simulacrum" + "_" + scalaBinaryVersion.value) % pv
