@@ -268,7 +268,11 @@ class TypeClassMacros(val c: Context) {
         tq"${typeClass.name}[${tparam.name}]"
       } else {
         val refinements = abstractTypeMembers.map { case TypeDef(mods, name, tparams, rhs) =>
-          TypeDef(NoMods, name, tparams, tq"$instance.$name")
+          val (namedParams, names) = tparams.map { case TypeDef(pmods, _, ptparams, prhs) =>
+            val newName = TypeName(c.freshName)
+            (TypeDef(pmods, newName, ptparams, prhs), newName)
+          }.unzip
+          TypeDef(NoMods, name, namedParams, tq"$instance.$name[..$names]")
         }
         tq"${typeClass.name}[${tparam.name}]{ ..$refinements }"
       }
