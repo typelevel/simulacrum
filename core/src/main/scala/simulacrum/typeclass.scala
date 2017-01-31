@@ -330,6 +330,7 @@ class TypeClassMacros(val c: Context) {
         c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
       }
       q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$allOpsParents {
+        type TypeClassType <: ${typeClass.name}[${tparam.name}]
         val $tcInstanceName: TypeClassType
       }"""
     }
