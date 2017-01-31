@@ -388,7 +388,7 @@ class TypeClassMacros(val c: Context) {
           "org.wartremover.warts.ExplicitImplicitTypes",
           "org.wartremover.warts.ImplicitConversion"))
         implicit def $methodName[..$tparams](target: $targetType)(implicit $instance: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames]{ type TypeClassType = $refinedType} =
-          new $opsType[..$tparamNames] { type TypeClassType = $refinedType; val self = target; val $tcInstanceName = $instance.asInstanceOf[$refinedType] }
+          new $opsType[..$tparamNames] { type TypeClassType = $refinedType; val self = target; val $tcInstanceName: TypeClassType = $instance }
         """
       }
 
