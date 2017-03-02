@@ -5,7 +5,7 @@ import org.scalatest.{ WordSpec, Matchers }
 // NB: These imports are because the tests are compiled with `-Yno-imports`, to
 //     ensure that simulacrum works in projects that use that flag.
 import java.lang.String
-import scala.{ Any, Boolean, Either, Int, Left, Nil, Option, Right, Some }
+import scala.{ Any, Nothing, Boolean, Either, Int, Left, Nil, Option, Right, Some }
 import scala.Predef.{ ???, identity, wrapString }
 import scala.collection.immutable.List
 import scala.util
@@ -421,6 +421,52 @@ class TypeClassTest extends WordSpec with Matchers {
       }
       Foo(1) shouldBe "1"
       Foo.unapply("1") shouldBe Some(1)
+    }
+
+    "support dependent types in ops and summoner" in {
+      @typeclass
+      trait First[P] {
+        type Out >: Nothing <: Any  // bounds are supported but not required
+        def first(product: P): Out
+      }
+      object First {
+        type Aux[T, Out0] = First[T] { type Out = Out0 }
+
+        implicit def firstOfPair[A, B]: First.Aux[(A, B), A] = new First[(A, B)] {
+          override type Out = A
+          override def first(pair: (A, B)) = pair._1
+        }
+      }
+
+      val p = (1, "xxx")
+      import First.ops._
+      val a = p.first
+      val i: Int = a  // The compiler should know a has type Int
+
+      val b = First[(Int,String)].first(p)
+      val j: Int = b  // The compiler should know b has type Int
+    }
+
+    "support dependent type constructors in ops and summoner" in {
+      import scala.collection.mutable
+      @typeclass trait Mutable[S[_]] {
+        type R[_]
+        def toMutable[A](source: S[A]): R[A]
+      }
+      object Mutable {
+        type Aux[S[_],R0[_]] = Mutable[S]{ type R[x] = R0[x] }
+        implicit def converterImpl: Aux[List, mutable.ListBuffer] = new Mutable[List] {
+          type R[x] = mutable.ListBuffer[x]
+          def toMutable[A](s: List[A]) = s.to[mutable.ListBuffer]
+        }
+      }
+
+      import Mutable.ops._
+      val a = List(1,2,3).toMutable
+      val i: mutable.ListBuffer[Int] = a  // The compiler should know a has type mutable.ListBuffer[Int]
+
+      val b = Mutable[List].toMutable(List(1,2,3))
+      val j: mutable.ListBuffer[Int] = b  // The compiler should know b has type mutable.ListBuffer[Int]
     }
 
     "generate universal traits by default" in {
