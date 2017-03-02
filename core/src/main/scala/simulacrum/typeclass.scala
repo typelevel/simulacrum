@@ -339,7 +339,7 @@ class TypeClassMacros(val c: Context) {
       val tparam = eliminateVariance(tparam0)
       val instance = TermName("instance")
       val refinedType = refinedInstanceTypeTree(typeClass, tparam, instance)
-      val summoner = q"@scala.inline def apply[$tparam](implicit $instance: ${typeClass.name}[${tparam.name}]): $refinedType = instance"
+      val summoner = q"@scala.inline def apply[$tparam](implicit $instance: ${typeClass.name}[${tparam.name}]): $refinedType = $instance"
 
       val liftedTypeArgs = if (proper) List.empty[TypeDef] else {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
