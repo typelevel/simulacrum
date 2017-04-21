@@ -468,6 +468,42 @@ class TypeClassTest extends WordSpec with Matchers {
       val b = Mutable[List].toMutable(List(1,2,3))
       val j: mutable.ListBuffer[Int] = b  // The compiler should know b has type mutable.ListBuffer[Int]
     }
+    
+    "support lots of dependent types" in {
+      @typeclass trait Foo[P] { 
+        type A
+        type B
+        type C
+        type F[_,_,_]
+        def a(p: P): A
+        def b(p: P): B
+        def c(p: P): C
+        def make[X,Y,Z](x: X, y: Y, z: Z): F[X,Y,Z] 
+      }
+      
+      object Foo {
+        type Aux[P,A0,B0,C0,F0[_,_,_]] = Foo[P] { type A=A0; type B=B0; type C=C0; type F[x,y,z] = F0[x,y,z] }
+      
+        implicit def foo[A0,B0,C0]: Foo.Aux[(A0,B0,C0),A0,B0,C0,scala.Tuple3] = new Foo[(A0,B0,C0)] {
+          type A = A0
+          type B = B0
+          type C = C0
+          type F[x,y,z] = (x,y,z)
+          def a(p: (A0,B0,C0)) = p._1
+          def b(p: (A0,B0,C0)) = p._2
+          def c(p: (A0,B0,C0)) = p._3
+          def make[X,Y,Z](x: X, y: Y, z: Z) = (x,y,z)
+        }
+      }
+      
+      import Foo.ops._
+      
+      val tuple: (Int,String,Option[Int]) = Foo[(Int,Int,Int)].make(1,"a",Some(2))
+      
+      val a: Int = tuple.a
+      val b: String = tuple.b
+      val c: Option[Int] = tuple.c
+    }
 
     "generate universal traits by default" in {
       trait Foo[F[_]] extends Any with Functor[F]
