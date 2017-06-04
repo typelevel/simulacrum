@@ -193,10 +193,10 @@ class TypeClassMacros(val c: Context) {
             case tq"$ctor[..$targs]" => targs.foldLeft(Option.empty[Name]) { (_, targ) => extract(targ) }
             case other => Option.empty
           }
-          args.zipWithIndex.map { 
-            case (arg, idx) => 
-              val simpleArgOpt = extract(arg) 
-              (arg, simpleArgOpt, liftedTypeArgs(idx), simpleArgOpt.map(arg equalsStructure Ident(_)).getOrElse(false)) 
+          args.zipWithIndex.map {
+            case (arg, idx) =>
+              val simpleArgOpt = extract(arg)
+              (arg, simpleArgOpt, liftedTypeArgs(idx), simpleArgOpt.map(arg equalsStructure Ident(_)).getOrElse(false))
             }
         }
 
@@ -209,17 +209,17 @@ class TypeClassMacros(val c: Context) {
           })
           //evidence for type args which are nested
           val equalityEvidences = simpleArgs.filterNot(_._4).map {
-            case (arg, _, liftedTypeArg, _) =>                     
+            case (arg, _, liftedTypeArg, _) =>
               val tEq = tq"_root_.scala.Predef.<:<[${liftedTypeArg.name}, $arg]"
               ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
           }
-          //params to strip from method signature because they are defined on 
+          //params to strip from method signature because they are defined on
           val removeTParams = simpleArgs.filter(_._4).map(_._2.get).toSet
           val withoutFirst = if (firstParamList.tail.isEmpty) method.vparamss.tail else firstParamList.tail :: method.vparamss.tail
           val withRewrittenFirst = withoutFirst map { _ map { param =>
             ValDef(param.mods, param.name, rewriteSimpleArgs.transform(param.tpt), rewriteSimpleArgs.transform(param.rhs))
           }}
-          
+
           val paramssFixed = if(equalityEvidences.isEmpty) withRewrittenFirst else {
             if(withRewrittenFirst.nonEmpty && withRewrittenFirst.last.head.mods.hasFlag(Flag.IMPLICIT))
               withRewrittenFirst.init ++ List(equalityEvidences ++ withRewrittenFirst.last)
@@ -262,6 +262,22 @@ class TypeClassMacros(val c: Context) {
 
     def targetTypeTree(tparam: TypeDef, proper: Boolean, liftedTypeArgs: List[TypeDef]): Tree = if(proper) tq"${tparam.name}" else tq"""${tparam.name}[..${liftedTypeArgs.map(_.name)}]"""
 
+    def refinedInstanceTypeTree(typeClass: ClassDef, tparam: TypeDef, instance: TermName): Tree = {
+      val abstractTypeMembers = typeClass.impl.children.collect { case t @ TypeDef(mods, _, _, _) if mods.hasFlag(Flag.DEFERRED) => t }
+      if (abstractTypeMembers.isEmpty) {
+        tq"${typeClass.name}[${tparam.name}]"
+      } else {
+        val refinements = abstractTypeMembers.map { case TypeDef(mods, name, tparams, rhs) =>
+          val (namedParams, names) = tparams.map { case TypeDef(pmods, _, ptparams, prhs) =>
+            val newName = TypeName(c.freshName)
+            (TypeDef(pmods, newName, ptparams, prhs), newName)
+          }.unzip
+          TypeDef(NoMods, name, namedParams, tq"$instance.$name[..$names]")
+        }
+        tq"${typeClass.name}[${tparam.name}]{ ..$refinements }"
+      }
+    }
+
     def generateOps(typeClass: ClassDef, tcInstanceName: TermName, tparam: TypeDef, proper: Boolean, liftedTypeArgs: List[TypeDef]): (ClassDef, Set[TypeName]) = {
       val adaptedMethods = adaptMethods(typeClass, tcInstanceName, tparam.name, proper, liftedTypeArgs)
       val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArgs
@@ -281,7 +297,8 @@ class TypeClassMacros(val c: Context) {
       val importTcMembers = if (shouldImportTcMembers) List(q"""import $tcInstanceName._""") else Nil
 
       val opsTrait = q"""trait Ops[..$tparams] {
-        val $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        type TypeClassType <: ${typeClass.name}[${tparam.name}]
+        val $tcInstanceName: TypeClassType
         ..$importTcMembers
         def self: $targetType
         ..$adaptedMethods
@@ -313,13 +330,16 @@ class TypeClassMacros(val c: Context) {
         c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
       }
       q"""trait AllOps[..$tparams] extends Ops[..$tparamNames] with ..$allOpsParents {
-        val $tcInstanceName: ${typeClass.name}[${tparam.name}]
+        type TypeClassType <: ${typeClass.name}[${tparam.name}]
+        val $tcInstanceName: TypeClassType
       }"""
     }
 
     def generateCompanion(typeClass: ClassDef, tparam0: TypeDef, proper: Boolean, comp: Tree) = {
       val tparam = eliminateVariance(tparam0)
-      val summoner = q"@scala.inline def apply[$tparam](implicit instance: ${typeClass.name}[${tparam.name}]): ${typeClass.name}[${tparam.name}] = instance"
+      val instance = TermName("instance")
+      val refinedType = refinedInstanceTypeTree(typeClass, tparam, instance)
+      val summoner = q"@scala.inline def apply[$tparam](implicit $instance: ${typeClass.name}[${tparam.name}]): $refinedType = $instance"
 
       val liftedTypeArgs = if (proper) List.empty[TypeDef] else {
         // We have a TypeClass[F[_ >: L <: U]], so let's create a F[X >: L <: U] for a fresh name X
@@ -330,8 +350,8 @@ class TypeClassMacros(val c: Context) {
         //   ), TypeBoundsTree(EmptyTree, EmptyTree))
         val TypeDef(_, _, tparamtparams, _) = tparam
         val ftss = tparamtparams.filter(_.name == typeNames.WILDCARD)
-        if(ftss.isEmpty) 
-          c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed n-arity type constructor") 
+        if(ftss.isEmpty)
+          c.abort(c.enclosingPosition, "Cannot find a wildcard type in supposed n-arity type constructor")
         else {
           val liftedTypeArgName = TypeName(c.freshName(s"lta"))
           ftss.foldLeft(0 -> List.empty[TypeDef]) {
@@ -347,7 +367,7 @@ class TypeClassMacros(val c: Context) {
               (i + 1) -> (rewriteWildcard.transformTypeDefs(List(TypeDef(fixedMods, tname, tpps, rhs))).head :: ts)
           }._2.reverse
         }
-     }   
+     }
 
       val tcInstanceName = TermName("typeClassInstance")
 
@@ -358,6 +378,8 @@ class TypeClassMacros(val c: Context) {
         val tparams = List(eliminateVariance(tparam)) ++ liftedTypeArgs
         val tparamNames = tparams.map(_.name)
         val targetType = targetTypeTree(tparam, proper, liftedTypeArgs)
+        val instance = TermName("tc")
+        val refinedType = refinedInstanceTypeTree(typeClass, tparam, instance)
         // Suppressing `ImplicitConversion` is probably necessary, but it should
         // be possible to avoid `ExplicitImplicitTypes` (see
         // puffnfresh/wartremover#226).
@@ -365,8 +387,8 @@ class TypeClassMacros(val c: Context) {
         @java.lang.SuppressWarnings(scala.Array(
           "org.wartremover.warts.ExplicitImplicitTypes",
           "org.wartremover.warts.ImplicitConversion"))
-        implicit def $methodName[..$tparams](target: $targetType)(implicit tc: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames] =
-          new $opsType[..$tparamNames] { val self = target; val $tcInstanceName = tc }
+        implicit def $methodName[..$tparams](target: $targetType)(implicit $instance: ${typeClass.name}[${tparam.name}]): $opsType[..$tparamNames]{ type TypeClassType = $refinedType} =
+          new $opsType[..$tparamNames] { type TypeClassType = $refinedType; val self = target; val $tcInstanceName: TypeClassType = $instance }
         """
       }
 
@@ -405,7 +427,7 @@ class TypeClassMacros(val c: Context) {
       val potentialNames = ('A' to 'Z').map(ch => TypeName(ch.toString)).filter(nme => !opsReservedTParamNames.contains(nme))
 
       liftedTypeArgs.foldLeft((companion: Tree) -> potentialNames) {
-        case ((prev, namesLeft), lta) =>         
+        case ((prev, namesLeft), lta) =>
           val newName = namesLeft.head
           new RewriteTypeName(from = lta.name, to = newName).transform(prev) -> namesLeft.tail
       }._1
