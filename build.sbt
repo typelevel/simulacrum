@@ -25,14 +25,38 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.1"),
+  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.2", "2.13.0-M1"),
+  sources in Test := {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
+        Nil
+      case _ =>
+        (sources in Test).value
+    }
+  },
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  libraryDependencies ++= Seq(
-    "org.scalatest" %%% "scalatest" % "3.0.0" % "test"
-  ),
+  libraryDependencies := {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 =>
+        libraryDependencies.value.filterNot{ d =>
+          d.organization == "org.wartremover" && d.name == "wartremover"
+        }
+      case _ =>
+        libraryDependencies.value
+    }
+  },
+  libraryDependencies ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
+        // https://github.com/scalatest/scalatest/issues/1152
+        Nil
+      case _ =>
+        Seq("org.scalatest" %%% "scalatest" % "3.0.3" % "test")
+    }
+  },
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo <<= version { v: String =>
@@ -75,7 +99,17 @@ lazy val commonSettings = Seq(
   useGpgAgent := true,
   wartremoverErrors in (Test, compile) ++= Seq(
     Wart.ExplicitImplicitTypes,
-    Wart.ImplicitConversion))
+    Wart.ImplicitConversion)
+) ++ Seq(Compile, Test).map{ scope =>
+  scalacOptions in (scope, compile) := {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 =>
+        (scalacOptions in (scope, compile)).value.filterNot(_.contains("wartremover"))
+      case _ =>
+        (scalacOptions in (scope, compile)).value
+    }
+  }
+}
 
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
