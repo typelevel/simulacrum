@@ -31,6 +31,8 @@ lazy val commonSettings = Seq(
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
         Nil
+      case _ if crossPlatform.value == NativePlatform =>
+        Nil
       case _ =>
         (sources in Test).value
     }
@@ -53,6 +55,8 @@ lazy val commonSettings = Seq(
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
         // https://github.com/scalatest/scalatest/issues/1152
+        Nil
+      case _ if crossPlatform.value == NativePlatform =>
         Nil
       case _ =>
         Seq("org.scalatest" %%% "scalatest" % "3.0.3" % "test")
@@ -115,7 +119,7 @@ lazy val commonSettings = Seq(
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(noPublishSettings: _*)
-  .aggregate(coreJVM, examplesJVM, coreJS, examplesJS, coreNative, examplesNative)
+  .aggregate(coreJVM, examplesJVM, coreJS, examplesJS, coreNative)
 
 def previousVersion(currentVersion: String): Option[String] = {
   val Version = """(\d+)\.(\d+)\.(\d+).*""".r
@@ -146,7 +150,7 @@ lazy val coreJS = core.js
 lazy val coreNative = core.native
 
 // TODO: provide scala-native support when scalatest supports it
-lazy val examples = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
+lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
@@ -154,6 +158,7 @@ lazy val examples = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pu
 
 lazy val examplesJVM = examples.jvm
 lazy val examplesJS = examples.js
+lazy val examplesNative = examples.native
 
 // Base Build Settings
 lazy val scalaMacroDependencies: Seq[Setting[_]] = Seq(
