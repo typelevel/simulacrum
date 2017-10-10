@@ -1,3 +1,4 @@
+import sbtcrossproject.{crossProject, CrossType}
 import sbtrelease._
 import com.typesafe.tools.mima.core._
 
@@ -24,8 +25,8 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.2", "2.13.0-M1"),
+  scalaVersion := "2.11.11",
+  crossScalaVersions := Seq("2.10.6", "2.11.11", "2.12.3", "2.13.0-M1"),
   sources in Test := {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
@@ -114,7 +115,7 @@ lazy val commonSettings = Seq(
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
   .settings(noPublishSettings: _*)
-  .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
+  .aggregate(coreJVM, examplesJVM, coreJS, examplesJS, coreNative, examplesNative)
 
 def previousVersion(currentVersion: String): Option[String] = {
   val Version = """(\d+)\.(\d+)\.(\d+).*""".r
@@ -123,7 +124,7 @@ def previousVersion(currentVersion: String): Option[String] = {
   else Some(s"$x.$y.${z.toInt - 1}")
 }
 
-lazy val core = crossProject.crossType(CrossType.Pure)
+lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
@@ -142,8 +143,10 @@ lazy val core = crossProject.crossType(CrossType.Pure)
 
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
+lazy val coreNative = core.native
 
-lazy val examples = crossProject.crossType(CrossType.Pure)
+// TODO: provide scala-native support when scalatest supports it
+lazy val examples = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
