@@ -24,8 +24,8 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
-  scalaVersion := "2.11.8",
-  crossScalaVersions := Seq("2.10.6", "2.11.8", "2.12.2", "2.13.0-M1"),
+  scalaVersion := "2.11.12",
+  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4", "2.13.0-M2"),
   sources in Test := {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
@@ -49,19 +49,13 @@ lazy val commonSettings = Seq(
     }
   },
   libraryDependencies ++= {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
-        // https://github.com/scalatest/scalatest/issues/1152
-        Nil
-      case _ =>
-        Seq("org.scalatest" %%% "scalatest" % "3.0.3" % "test")
-    }
+    Seq("org.scalatest" %%% "scalatest" % "3.0.4" % "test")
   },
   addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
-  publishTo <<= version { v: String =>
+  publishTo := {
     val nexus = "https://oss.sonatype.org/"
-    if (v.trim.endsWith("SNAPSHOT"))
+    if (version.value.trim.endsWith("SNAPSHOT"))
       Some("snapshots" at nexus + "content/repositories/snapshots")
     else
       Some("releases" at nexus + "service/local/staging/deploy/maven2")
@@ -135,9 +129,9 @@ lazy val core = crossProject.crossType(CrossType.Pure)
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
   .jvmSettings(
-    previousArtifact := previousVersion(version.value) map { pv =>
+    mimaPreviousArtifacts := previousVersion(version.value).map { pv =>
       organization.value % ("simulacrum" + "_" + scalaBinaryVersion.value) % pv
-    }
+    }.toSet
   )
 
 lazy val coreJVM = core.jvm
