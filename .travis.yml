@@ -17,7 +17,7 @@ jdk:
   - oraclejdk8
 
 script:
-  - sbt ++$TRAVIS_SCALA_VERSION test mimaReportBinaryIssues
+  - sbt "++${TRAVIS_SCALA_VERSION}!" test mimaReportBinaryIssues
 
   # Tricks to avoid unnecessary cache updates
   - find $HOME/.sbt -name "*.lock" -exec rm {} +
