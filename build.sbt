@@ -26,14 +26,6 @@ lazy val commonSettings = Seq(
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := "2.11.12",
   crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4", "2.13.0-M2"),
-  sources in Test := {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, v)) if v >= 13 && isScalaJSProject.value =>
-        Nil
-      case _ =>
-        (sources in Test).value
-    }
-  },
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
