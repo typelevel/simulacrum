@@ -159,8 +159,8 @@ lazy val scalaMacroDependencies: Seq[Setting[_]] = Seq(
 )
 
 lazy val noPublishSettings = Seq(
-  publish := (),
-  publishLocal := (),
+  publish := {},
+  publishLocal := {},
   publishArtifact := false
 )
 
