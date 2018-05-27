@@ -325,7 +325,7 @@ class TypeClassMacros(val c: Context) {
         case parent if !(typeClassArguments.parentsToExclude contains parent) =>
           tq"${parent.toTermName}.AllOps[..$tparamNames]"
       }
-      val unknownParentExclusions = (typeClassArguments.parentsToExclude -- typeClassParents.toSet).toList.map(_.toString).sorted
+      val unknownParentExclusions = (typeClassArguments.parentsToExclude diff typeClassParents.toSet).toList.map(_.toString).sorted
       if (unknownParentExclusions.nonEmpty) {
         c.error(c.enclosingPosition, s"@typeclass excludes unknown parent types: ${unknownParentExclusions.mkString}")
       }

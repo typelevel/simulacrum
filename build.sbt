@@ -1,5 +1,6 @@
 import sbtrelease._
 import com.typesafe.tools.mima.core._
+import sbtcrossproject.{crossProject, CrossType}
 
 def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: String*): Seq[String] = {
   case class ScalaBinaryVersion(major: Int, minor: Int) extends Ordered[ScalaBinaryVersion] {
@@ -25,7 +26,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := "2.11.12",
-  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4", "2.13.0-M3"),
+  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4", "2.13.0-M4"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -41,9 +42,25 @@ lazy val commonSettings = Seq(
     }
   },
   libraryDependencies ++= {
-    Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
+    if (scalaVersion.value == "2.13.0-M4") {
+      // TODO https://github.com/scalatest/scalatest/issues/1367
+      Nil
+    } else {
+      Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
+    }
   },
-  addCompilerPlugin("org.scalamacros" %% "paradise" % "2.1.0" cross CrossVersion.full),
+  libraryDependencies ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v <= 12 =>
+        Seq(
+          compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
+        )
+      case _ =>
+        // if scala 2.13.0-M4 or later, macro annotations merged into scala-reflect
+        // https://github.com/scala/scala/pull/6606
+        Nil
+    }
+  },
   licenses += ("Three-clause BSD-style", url("https://github.com/mpilquist/simulacrum/blob/master/LICENSE")),
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
@@ -109,7 +126,7 @@ def previousVersion(currentVersion: String): Option[String] = {
   else Some(s"$x.$y.${z.toInt - 1}")
 }
 
-lazy val core = crossProject.crossType(CrossType.Pure)
+lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
@@ -129,7 +146,7 @@ lazy val core = crossProject.crossType(CrossType.Pure)
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
 
-lazy val examples = crossProject.crossType(CrossType.Pure)
+lazy val examples = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
   .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
