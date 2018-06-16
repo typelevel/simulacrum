@@ -43,8 +43,7 @@ lazy val commonSettings = Seq(
   },
   libraryDependencies ++= {
     if (scalaVersion.value == "2.13.0-M4") {
-      // TODO https://github.com/scalatest/scalatest/issues/1367
-      Nil
+      Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP1" % "test")
     } else {
       Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
     }
@@ -107,7 +106,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (scope, compile) := {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 =>
-        (scalacOptions in (scope, compile)).value.filterNot(_.contains("wartremover"))
+        (scalacOptions in (scope, compile)).value.filterNot(_.contains("wartremover")) :+ "-Ymacro-annotations"
       case _ =>
         (scalacOptions in (scope, compile)).value
     }
