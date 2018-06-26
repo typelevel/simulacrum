@@ -133,6 +133,15 @@ lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
     scalacOptions in (Test) += "-Yno-imports"
   )
   .settings(scalaMacroDependencies:_*)
+  .jvmSettings(
+    libraryDependencies += "org.ensime" %% "pcplod" % "1.2.1" % "test",
+    // WORKAROUND https://github.com/ensime/pcplod/issues/12
+    fork in Test := true,
+    javaOptions in Test ++= Seq(
+      s"""-Dpcplod.settings=${(scalacOptions in Test).value.filterNot(_.contains(",")).mkString(",")}""",
+      s"""-Dpcplod.classpath=${(fullClasspath in Test).value.map(_.data).mkString(",")}"""
+    )
+  )
   .jsSettings(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
