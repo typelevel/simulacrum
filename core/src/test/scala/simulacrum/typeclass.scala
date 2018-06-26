@@ -6,7 +6,7 @@ import org.scalatest.{ WordSpec, Matchers }
 //     ensure that simulacrum works in projects that use that flag.
 import java.lang.String
 import scala.{ Any, Nothing, Boolean, Either, Int, Left, Nil, Option, Right, Some }
-import scala.Predef.{ ???, identity, wrapString }
+import scala.Predef.{ ???, identity }
 import scala.collection.immutable.List
 import scala.util
 
@@ -417,7 +417,7 @@ class TypeClassTest extends WordSpec with Matchers {
       object Foo extends Companion1[String] {
         type A = Int
         def apply(x: Int) = x.toString
-        def unapply(s: String) = util.Try(s.toInt).toOption
+        def unapply(s: String) = util.Try(java.lang.Integer.parseInt(s)).toOption
       }
       Foo(1) shouldBe "1"
       Foo.unapply("1") shouldBe Some(1)
@@ -457,7 +457,11 @@ class TypeClassTest extends WordSpec with Matchers {
         type Aux[S[_],R0[_]] = Mutable[S]{ type R[x] = R0[x] }
         implicit def converterImpl: Aux[List, mutable.ListBuffer] = new Mutable[List] {
           type R[x] = mutable.ListBuffer[x]
-          def toMutable[A](s: List[A]) = s.to[mutable.ListBuffer]
+          def toMutable[A](s: List[A]) = {
+            val buf = mutable.ListBuffer[A]()
+            buf ++= s
+            buf
+          }
         }
       }
 

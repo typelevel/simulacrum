@@ -95,7 +95,7 @@ class Examples extends WordSpec with Matchers {
           def empty[A] = Maybe.empty[A]
           def flatMap[A, B](fa: Maybe[A])(f: A => Maybe[B]) = fa match {
             case Just(a) => f(a)
-            case e @ Empty => e
+            case e @ Empty => Empty
           }
         }
       }
