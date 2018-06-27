@@ -1,6 +1,9 @@
 import sbtrelease._
 import com.typesafe.tools.mima.core._
 import sbtcrossproject.{crossProject, CrossType}
+import ReleaseTransformations._
+
+val Scala211 = "2.11.12"
 
 def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: String*): Seq[String] = {
   case class ScalaBinaryVersion(major: Int, minor: Int) extends Ordered[ScalaBinaryVersion] {
@@ -11,6 +14,22 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
   if (getScalaBinaryVersion(scalaBinaryVersion) >= getScalaBinaryVersion(atLeastVersion)) options
   else Seq.empty
 }
+
+lazy val scalatestSetting = Def.setting(
+  if (scalaVersion.value == "2.13.0-M4") {
+    Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP1" % "test")
+  } else {
+    Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
+  }
+)
+
+lazy val nativeCommonSettings = Def.settings(
+  // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
+  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.2.0-SNAP10" % "test",
+  scalaVersion := Scala211,
+  crossScalaVersions := Seq(Scala211),
+  nativeLinkStubs := true
+)
 
 lazy val commonSettings = Seq(
   organization := "com.github.mpilquist",
@@ -25,8 +44,8 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
-  scalaVersion := "2.11.12",
-  crossScalaVersions := Seq("2.10.7", "2.11.12", "2.12.4", "2.13.0-M4"),
+  scalaVersion := Scala211,
+  crossScalaVersions := Seq("2.10.7", Scala211, "2.12.4", "2.13.0-M4"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -39,13 +58,6 @@ lazy val commonSettings = Seq(
         }
       case _ =>
         libraryDependencies.value
-    }
-  },
-  libraryDependencies ++= {
-    if (scalaVersion.value == "2.13.0-M4") {
-      Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP1" % "test")
-    } else {
-      Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
     }
   },
   libraryDependencies ++= {
@@ -97,6 +109,20 @@ lazy val commonSettings = Seq(
   },
   releaseCrossBuild := true,
   releasePublishArtifactsAction := PgpKeys.publishSigned.value,
+  releaseProcess := Seq[ReleaseStep](
+    checkSnapshotDependencies,
+    inquireVersions,
+    runClean,
+    runTest,
+    setReleaseVersion,
+    commitReleaseVersion,
+    tagRelease,
+    publishArtifacts,
+    releaseStepCommandAndRemaining(s";++${Scala211}!;coreNative/publishSigned"),
+    setNextVersion,
+    commitNextVersion,
+    pushChanges
+  ),
   useGpg := true,
   useGpgAgent := true,
   wartremoverErrors in (Test, compile) ++= Seq(
@@ -125,7 +151,7 @@ def previousVersion(currentVersion: String): Option[String] = {
   else Some(s"$x.$y.${z.toInt - 1}")
 }
 
-lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
+lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
@@ -133,7 +159,13 @@ lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
     scalacOptions in (Test) += "-Yno-imports"
   )
   .settings(scalaMacroDependencies:_*)
-  .jsSettings(
+  .nativeSettings(
+    nativeCommonSettings
+  )
+  .platformsSettings(JVMPlatform, JSPlatform)(
+    libraryDependencies ++= scalatestSetting.value
+  )
+  .platformsSettings(JSPlatform, NativePlatform)(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
   .jvmSettings(
@@ -144,15 +176,23 @@ lazy val core = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
 
 lazy val coreJVM = core.jvm
 lazy val coreJS = core.js
+lazy val coreNative = core.native
 
-lazy val examples = crossProject(JSPlatform, JVMPlatform).crossType(CrossType.Pure)
+lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
   .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
   .settings(noPublishSettings: _*)
+  .platformsSettings(JVMPlatform, JSPlatform)(
+    libraryDependencies ++= scalatestSetting.value
+  )
+  .nativeSettings(
+    nativeCommonSettings
+  )
 
 lazy val examplesJVM = examples.jvm
 lazy val examplesJS = examples.js
+lazy val examplesNative = examples.native
 
 // Base Build Settings
 lazy val scalaMacroDependencies: Seq[Setting[_]] = Seq(
