@@ -206,7 +206,7 @@ class Examples extends WordSpec with Matchers {
         (1 |+| 2) =#= (2 |+| 1)
       }
 
-      // Alernatively, multiple type class ops can be combined in to a syntax object, which provides
+      // Alternatively, multiple type class ops can be combined in to a syntax object, which provides
       // a single import for all implicit conversions
       {
         object all extends Equal.ToEqualOps with Semigroup.ToSemigroupOps with Monoid.ToMonoidOps

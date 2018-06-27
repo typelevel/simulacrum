@@ -203,7 +203,7 @@ class TypeClassMacros(val c: Context) {
         val skipMethod = !simpleArgs.foldLeft(true)(_ && _._2.isDefined)
 
         if(skipMethod) List.empty else {
-          //rewrites all occurences of any of the args which are defined on the method to the lifted arg
+          //rewrites all occurrences of any of the args which are defined on the method to the lifted arg
           val rewriteSimpleArgs = new FoldTransformer(simpleArgs.foldLeft(List.empty[Transformer]) {
             case (ts, (_, Some(simpleArg), liftedTypeArg, _)) => new RewriteTypeName(from = simpleArg.toTypeName, to = liftedTypeArg.name) :: ts
           })
