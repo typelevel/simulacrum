@@ -1,5 +1,5 @@
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.9")
-addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.1")
+addSbtPlugin("com.jsuereth" % "sbt-pgp" % "1.1.0")
 addSbtPlugin("org.scala-js" % "sbt-scalajs"  % "0.6.24")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.1")
