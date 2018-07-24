@@ -50,16 +50,6 @@ lazy val commonSettings = Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
   ),
-  libraryDependencies := {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, v)) if v >= 13 =>
-        libraryDependencies.value.filterNot{ d =>
-          d.organization == "org.wartremover" && d.name == "wartremover"
-        }
-      case _ =>
-        libraryDependencies.value
-    }
-  },
   libraryDependencies ++= {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v <= 12 =>
@@ -132,7 +122,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (scope, compile) := {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 =>
-        (scalacOptions in (scope, compile)).value.filterNot(_.contains("wartremover")) :+ "-Ymacro-annotations"
+        (scalacOptions in (scope, compile)).value :+ "-Ymacro-annotations"
       case _ =>
         (scalacOptions in (scope, compile)).value
     }
