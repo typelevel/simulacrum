@@ -26,6 +26,9 @@ before_cache:
 
 matrix:
   include:
+  - scala: 2.13.0-M5
+    script:
+    - sbt "++${TRAVIS_SCALA_VERSION}!" compile
   - sudo: required
     scala: SCALA_NATIVE
     before_install:
