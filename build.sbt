@@ -16,7 +16,9 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
 }
 
 lazy val scalatestSetting = Def.setting(
-  if (scalaVersion.value == "2.13.0-M4") {
+  if (scalaVersion.value == "2.13.0-M5") {
+    Nil // TODO
+  } else if (scalaVersion.value == "2.13.0-M4") {
     Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP1" % "test")
   } else {
     Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
@@ -38,8 +40,6 @@ lazy val commonSettings = Seq(
     "-feature",
     "-language:higherKinds",
     "-language:implicitConversions"
-  ) ++ ifAtLeast(scalaBinaryVersion.value, "2.11.0")(
-    "-Ywarn-unused-import"
   ),
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
