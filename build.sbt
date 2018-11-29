@@ -19,7 +19,7 @@ lazy val scalatestSetting = Def.setting(
   if (scalaVersion.value == "2.13.0-M5") {
     Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP4" % "test")
   } else {
-    Seq("org.scalatest" %%% "scalatest" % "3.0.5-M1" % "test")
+    Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP5" % "test")
   }
 )
 
