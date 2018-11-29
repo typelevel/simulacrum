@@ -96,7 +96,6 @@ lazy val commonSettings = Seq(
     new RuleTransformer(stripTestScope).transform(node)(0)
   },
   releaseCrossBuild := true,
-  releasePublishArtifactsAction := PgpKeys.publishSigned.value,
   releaseProcess := Seq[ReleaseStep](
     checkSnapshotDependencies,
     inquireVersions,
@@ -106,13 +105,11 @@ lazy val commonSettings = Seq(
     commitReleaseVersion,
     tagRelease,
     publishArtifacts,
-    releaseStepCommandAndRemaining(s";++${Scala211}!;coreNative/publishSigned"),
+    releaseStepCommandAndRemaining(s";++${Scala211}!;coreNative/publish"),
     setNextVersion,
     commitNextVersion,
     pushChanges
   ),
-  useGpg := true,
-  useGpgAgent := true,
   wartremoverErrors in (Test, compile) ++= Seq(
     Wart.ExplicitImplicitTypes,
     Wart.ImplicitConversion)
