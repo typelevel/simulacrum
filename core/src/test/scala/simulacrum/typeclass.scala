@@ -10,7 +10,17 @@ import scala.Predef.{ ???, identity }
 import scala.collection.immutable.List
 import scala.util
 
+/**
+  * Semigroup description
+  * @tparam T type T
+  */
 @typeclass trait Semigroup[T] {
+  /**
+    * append description
+    * @param x param x
+    * @param y param y
+    * @return return value
+    */
   @op("|+|", alias = true)
   def append(x: T, y: T): T
   def appendCurried(x: T)(y: T): T = append(x, y)

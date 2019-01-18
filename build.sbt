@@ -101,6 +101,7 @@ lazy val commonSettings = Seq(
     inquireVersions,
     runClean,
     runTest,
+    releaseStepCommandAndRemaining("test:doc"),
     setReleaseVersion,
     commitReleaseVersion,
     tagRelease,
