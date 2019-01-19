@@ -39,6 +39,14 @@ lazy val commonSettings = Seq(
     "-language:higherKinds",
     "-language:implicitConversions"
   ),
+  scalacOptions ++= {
+    CrossVersion.partialVersion(scalaVersion.value) match {
+      case Some((2, v)) if v >= 13 =>
+        Seq("-Ymacro-annotations")
+      case _ =>
+        Nil
+    }
+  },
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
@@ -113,17 +121,17 @@ lazy val commonSettings = Seq(
   ),
   wartremoverErrors in (Test, compile) ++= Seq(
     Wart.ExplicitImplicitTypes,
-    Wart.ImplicitConversion)
-) ++ Seq(Compile, Test).map{ scope =>
-  scalacOptions in (scope, compile) := {
+    Wart.ImplicitConversion),
+  // Disable scaladoc on 2.13 until RC1 due to https://github.com/scala/bug/issues/11045
+  sources in (Test, doc) := {
     CrossVersion.partialVersion(scalaVersion.value) match {
       case Some((2, v)) if v >= 13 =>
-        (scalacOptions in (scope, compile)).value :+ "-Ymacro-annotations"
+        Nil
       case _ =>
-        (scalacOptions in (scope, compile)).value
+        (sources in (Test, doc)).value
     }
   }
-}
+)
 
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
