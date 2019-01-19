@@ -1,2 +1,4 @@
 target
-.idea/
+.idea
+.bloop
+.metals

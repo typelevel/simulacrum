@@ -249,9 +249,12 @@ class TypeClassMacros(val c: Context) {
     }
 
     def adaptMethods(typeClass: ClassDef, tcInstanceName: TermName, tparamName: Name, proper: Boolean, liftedTypeArgs: List[TypeDef]): List[DefDef] = {
-      val typeClassMethods = typeClass.impl.children.collect {
+      import scala.tools.nsc.ast.Trees
+      def matchMethod: PartialFunction[Tree, DefDef] = {
         case m: DefDef if !m.mods.hasFlag(Flag.PRIVATE) && !m.mods.hasFlag(Flag.PROTECTED) => m
+        case t if t.isInstanceOf[Trees#DocDef] => matchMethod(t.asInstanceOf[Trees#DocDef].definition.asInstanceOf[Tree])
       }
+      val typeClassMethods = typeClass.impl.children.collect(matchMethod)
       typeClassMethods.flatMap { method =>
         val adapted =
           if (proper) adaptMethodForProperType(tcInstanceName, tparamName, method)
