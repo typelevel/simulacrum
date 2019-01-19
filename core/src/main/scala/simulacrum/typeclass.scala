@@ -210,7 +210,7 @@ class TypeClassMacros(val c: Context) {
           //evidence for type args which are nested
           val equalityEvidences = simpleArgs.filterNot(_._4).map {
             case (arg, _, liftedTypeArg, _) =>
-              val tEq = tq"_root_.scala.Predef.<:<[${liftedTypeArg.name}, $arg]"
+              val tEq = tq"${symbolOf[_ <:< _]}[${liftedTypeArg.name}, $arg]"
               ValDef(Modifiers(Flag.IMPLICIT), TermName(c.freshName("ev")), tEq, EmptyTree)
           }
           //params to strip from method signature because they are defined on
