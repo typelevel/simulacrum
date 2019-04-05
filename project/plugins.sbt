@@ -1,6 +1,6 @@
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.11")
 addSbtPlugin("io.crashbox" % "sbt-gpg" % "0.2.0")
-addSbtPlugin("org.scala-js" % "sbt-scalajs"  % "0.6.26")
+addSbtPlugin("org.scala-js" % "sbt-scalajs"  % "0.6.27")
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.3.0")
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.3.7")
 addSbtPlugin("org.portable-scala" % "sbt-scalajs-crossproject" % "0.6.0")
