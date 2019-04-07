@@ -140,7 +140,7 @@ Note that the second approach will not include the `map` operation of its grandp
 
 ## Including Simulacrum
 
-This project supports Scala 2.10, 2.11 2.12, and 2.13.0-M5. The project is based on macro paradise. To use the project, add the following to your build.sbt:
+This project supports Scala 2.10, 2.11 2.12, and 2.13.0-RC1. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
 libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.15.0"
