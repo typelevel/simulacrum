@@ -51,7 +51,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := Scala211,
-  crossScalaVersions := Seq("2.10.7", Scala211, "2.12.7", "2.13.0-M5"),
+  crossScalaVersions := Seq(Scala211, "2.12.7", "2.13.0-M5"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -149,7 +149,6 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
-    libraryDependencies += "org.typelevel" %% "macro-compat" % "1.1.1",
     scalacOptions in (Test) += "-Yno-imports"
   )
   .settings(scalaMacroDependencies:_*)
