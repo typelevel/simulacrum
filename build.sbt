@@ -15,13 +15,7 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
   else Seq.empty
 }
 
-lazy val scalatestSetting = Def.setting(
-  if (scalaVersion.value == "2.13.0-M5") {
-    Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP4" % "test")
-  } else {
-    Seq("org.scalatest" %%% "scalatest" % "3.0.6-SNAP6" % "test")
-  }
-)
+lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.0.8-RC2" % "test")
 
 lazy val nativeCommonSettings = Def.settings(
   // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
@@ -51,7 +45,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := Scala211,
-  crossScalaVersions := Seq(Scala211, "2.12.7", "2.13.0-M5"),
+  crossScalaVersions := Seq(Scala211, "2.12.7", "2.13.0-RC1"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -138,11 +132,15 @@ lazy val root = project.in(file("."))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
-def previousVersion(currentVersion: String): Option[String] = {
-  val Version = """(\d+)\.(\d+)\.(\d+).*""".r
-  val Version(x, y, z) = currentVersion
-  if (z == "0") None
-  else Some(s"$x.$y.${z.toInt - 1}")
+def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
+  if (scalaVersion == "2.13.0-RC1")
+    None
+  else {
+    val Version = """(\d+)\.(\d+)\.(\d+).*""".r
+    val Version(x, y, z) = currentVersion
+    if (z == "0") None
+    else Some(s"$x.$y.${z.toInt - 1}")
+  }
 }
 
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
@@ -161,13 +159,13 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
     nativeCommonSettings
   )
   .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies ++= scalatestSetting.value
+    libraryDependencies += scalatest.value
   )
   .platformsSettings(JSPlatform, NativePlatform)(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
   .jvmSettings(
-    mimaPreviousArtifacts := previousVersion(version.value).map { pv =>
+    mimaPreviousArtifacts := previousVersion(scalaVersion.value, version.value).map { pv =>
       organization.value % ("simulacrum" + "_" + scalaBinaryVersion.value) % pv
     }.toSet
   )
@@ -182,7 +180,7 @@ lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossT
   .settings(moduleName := "simulacrum-examples")
   .settings(noPublishSettings: _*)
   .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies ++= scalatestSetting.value
+    libraryDependencies += scalatest.value
   )
   .nativeSettings(
     nativeCommonSettings
