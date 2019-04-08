@@ -132,11 +132,15 @@ lazy val root = project.in(file("."))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
-def previousVersion(currentVersion: String): Option[String] = {
-  val Version = """(\d+)\.(\d+)\.(\d+).*""".r
-  val Version(x, y, z) = currentVersion
-  if (z == "0") None
-  else Some(s"$x.$y.${z.toInt - 1}")
+def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
+  if (scalaVersion == "2.13.0-RC1")
+    None
+  else {
+    val Version = """(\d+)\.(\d+)\.(\d+).*""".r
+    val Version(x, y, z) = currentVersion
+    if (z == "0") None
+    else Some(s"$x.$y.${z.toInt - 1}")
+  }
 }
 
 lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(CrossType.Pure)
@@ -157,7 +161,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
   )
   .jvmSettings(
-    mimaPreviousArtifacts := previousVersion(version.value).map { pv =>
+    mimaPreviousArtifacts := previousVersion(scalaVersion.value, version.value).map { pv =>
       organization.value % ("simulacrum" + "_" + scalaBinaryVersion.value) % pv
     }.toSet
   )
