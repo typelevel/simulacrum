@@ -4,8 +4,6 @@ import scala.annotation.{ compileTimeOnly, StaticAnnotation }
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
 
-import macrocompat._
-
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
  *
@@ -52,7 +50,6 @@ class typeclass(excludeParents: List[String] = Nil, generateAllOps: Boolean = tr
   def macroTransform(annottees: Any*): Any = macro TypeClassMacros.generateTypeClass
 }
 
-@bundle
 class TypeClassMacros(val c: Context) {
   import c.universe._
 
