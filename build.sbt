@@ -15,7 +15,7 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
   else Seq.empty
 }
 
-lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.0.8-RC2" % "test")
+lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.0.8-RC4" % "test")
 
 lazy val nativeCommonSettings = Def.settings(
   // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
@@ -45,7 +45,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := Scala211,
-  crossScalaVersions := Seq(Scala211, "2.12.8", "2.13.0-RC1"),
+  crossScalaVersions := Seq(Scala211, "2.12.8", "2.13.0-RC2"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -115,16 +115,7 @@ lazy val commonSettings = Seq(
   ),
   wartremoverErrors in (Test, compile) ++= Seq(
     Wart.ExplicitImplicitTypes,
-    Wart.ImplicitConversion),
-  // Disable scaladoc on 2.13 until RC1 due to https://github.com/scala/bug/issues/11045
-  sources in (Test, doc) := {
-    CrossVersion.partialVersion(scalaVersion.value) match {
-      case Some((2, v)) if v >= 13 =>
-        Nil
-      case _ =>
-        (sources in (Test, doc)).value
-    }
-  }
+    Wart.ImplicitConversion)
 )
 
 lazy val root = project.in(file("."))
@@ -133,7 +124,7 @@ lazy val root = project.in(file("."))
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
 def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
-  if (scalaVersion == "2.13.0-RC1")
+  if (scalaVersion == "2.13.0-RC2")
     None
   else {
     val Version = """(\d+)\.(\d+)\.(\d+).*""".r
