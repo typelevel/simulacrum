@@ -143,7 +143,7 @@ Note that the second approach will not include the `map` operation of its grandp
 This project supports Scala 2.11, 2.12, and 2.13.0-RC2. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.17.0"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.18.0"
 
 // For Scala 2.11-2.12
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
@@ -157,7 +157,7 @@ To use the latest SNAPSHOT version, add the following:
 ```scala
 resolvers += "Sonatype Public" at "https://oss.sonatype.org/content/groups/public/"
 
-libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.18.0-SNAPSHOT"
+libraryDependencies += "com.github.mpilquist" %% "simulacrum" % "0.19.0-SNAPSHOT"
 
 // For Scala 2.11-2.12
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
