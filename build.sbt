@@ -15,7 +15,7 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
   else Seq.empty
 }
 
-lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.0.8-RC5" % "test")
+lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.1.0-SNAP13" % "test")
 
 lazy val nativeCommonSettings = Def.settings(
   // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
@@ -45,7 +45,7 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
   scalaVersion := Scala211,
-  crossScalaVersions := Seq(Scala211, "2.12.8", "2.13.0-RC3"),
+  crossScalaVersions := Seq(Scala211, "2.12.8", "2.13.0"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -124,7 +124,7 @@ lazy val root = project.in(file("."))
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
 def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
-  if (scalaVersion == "2.13.0-RC2")
+  if (scalaVersion == "2.13.0")
     None
   else {
     val Version = """(\d+)\.(\d+)\.(\d+).*""".r
