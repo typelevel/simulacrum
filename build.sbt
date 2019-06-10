@@ -15,7 +15,7 @@ def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: Strin
   else Seq.empty
 }
 
-lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.0.8-RC5" % "test")
+lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.1.0-SNAP13" % "test")
 
 lazy val nativeCommonSettings = Def.settings(
   // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
