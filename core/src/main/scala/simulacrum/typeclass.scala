@@ -3,6 +3,8 @@ package simulacrum
 import scala.annotation.{ compileTimeOnly, StaticAnnotation }
 import scala.language.experimental.macros
 import scala.reflect.macros.whitebox.Context
+import scala.reflect.api.Trees
+import scala.reflect.api.Annotations
 
 /**
  * Annotation that may be applied to methods on a type that is annotated with `@typeclass`.
@@ -145,6 +147,12 @@ class TypeClassMacros(val c: Context) {
         }
       }
       Modifiers(mods.flags, mods.privateWithin, filteredAnnotations)
+    }
+
+    def addNotFoundAnnotation(mods: Modifiers, className: String, genericParameter: String): Modifiers = {
+      val message = s"Could not find an instance of $className for $${$genericParameter}"
+      val notFoundAnnotation = q"""new _root_.scala.annotation.implicitNotFound($message)"""
+      Modifiers(mods.flags, mods.privateWithin, mods.annotations :+ notFoundAnnotation)
     }
 
     def adaptMethodForProperType(tcInstanceName: TermName, tparamName: Name, method: DefDef): List[DefDef] = {
@@ -459,7 +467,12 @@ class TypeClassMacros(val c: Context) {
           universal :+ tq"_root_.scala.Serializable"
         }
         val filteredImpl = Template(modifiedParents, typeClass.impl.self, filteredBody)
-        ClassDef(filterSimulacrumAnnotations(typeClass.mods), typeClass.name, typeClass.tparams, filteredImpl)
+        val modifiers = addNotFoundAnnotation(
+          filterSimulacrumAnnotations(typeClass.mods),
+          typeClass.name.decodedName.toString,
+          tparam.name.decodedName.toString
+        )
+        ClassDef(modifiers, typeClass.name, typeClass.tparams, filteredImpl)
       }
 
       val modifiedCompanion = generateCompanion(typeClass, tparam, proper, companion match {
