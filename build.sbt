@@ -171,7 +171,8 @@ lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossT
   .settings(moduleName := "simulacrum-examples")
   .settings(noPublishSettings: _*)
   .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies += scalatest.value
+    libraryDependencies += scalatest.value,
+    libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.3" % "test"
   )
   .nativeSettings(
     nativeCommonSettings
