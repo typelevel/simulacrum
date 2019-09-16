@@ -1,6 +1,5 @@
 package simulacrum
 
-import org.scalatest.{ WordSpec, Matchers }
 
 // NB: These imports are because the tests are compiled with `-Yno-imports`, to
 //     ensure that simulacrum works in projects that use that flag.
@@ -9,6 +8,8 @@ import scala.{ Any, Nothing, Boolean, Either, Int, Left, Nil, Option, Right, Som
 import scala.Predef.{ ???, identity }
 import scala.collection.immutable.List
 import scala.util
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 /**
   * Semigroup description
@@ -45,7 +46,7 @@ object Functor {
   }
 }
 
-class TypeClassTest extends WordSpec with Matchers {
+class TypeClassTest extends AnyWordSpec with Matchers {
 
   "the @typeclass annotation" should {
 
