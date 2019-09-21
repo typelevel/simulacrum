@@ -123,6 +123,8 @@ lazy val root = project.in(file("."))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
+mimaFailOnNoPrevious in ThisBuild := false
+
 def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
   if (scalaVersion == "2.13.0")
     None
