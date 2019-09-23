@@ -20,12 +20,12 @@ class Examples extends WordSpec with Matchers {
       object IntMonoids {
         implicit val Additive: Monoid[Int] = new Monoid[Int] {
           def id = 0
-          def append(x: Int, y: Int) = x + y
+          def append(x: Int, y: Int): Int = x + y
         }
 
         implicit val Multiplicative: Monoid[Int] = new Monoid[Int] {
           def id = 1
-          def append(x: Int, y: Int) = x * y
+          def append(x: Int, y: Int): Int = x * y
         }
       }
 
@@ -78,7 +78,7 @@ class Examples extends WordSpec with Matchers {
         }
 
         def withFilter[A](fa: F[A])(p: A => Boolean): WithFilter[A] = new WithFilter[A](fa, p)
-        def filter[A](fa: F[A])(f: A => Boolean) =
+        def filter[A](fa: F[A])(f: A => Boolean): F[A] =
           flatMap(fa)(a => if (f(a)) pure(a) else empty[A])
       }
 
@@ -91,9 +91,9 @@ class Examples extends WordSpec with Matchers {
         def empty[A]: Maybe[A] = Empty
 
         implicit val instance: MonadPlus[Maybe] = new MonadPlus[Maybe] {
-          def pure[A](a: => A) = just(a)
-          def empty[A] = Maybe.empty[A]
-          def flatMap[A, B](fa: Maybe[A])(f: A => Maybe[B]) = fa match {
+          def pure[A](a: => A): Maybe[A] = just(a)
+          def empty[A]: Maybe[A] = Maybe.empty[A]
+          def flatMap[A, B](fa: Maybe[A])(f: A => Maybe[B]): Maybe[B] = fa match {
             case Just(a) => f(a)
             case e @ Empty => Empty
           }
@@ -169,17 +169,17 @@ class Examples extends WordSpec with Matchers {
 
     "support type classes that are polymorphic over a binary type constructor" in {
       import TupleBifunctor._
-      (("Hello", 42) second fab) shouldBe ("Hello", "World")
+      (("Hello", 42) second fab) shouldBe (("Hello", "World"))
     }
 
     "support type classes that are polymorphic over a tertiary type constructor" in {
       import TupleTrifunctor._
-      (("Hello", "World", 42) third fab) shouldBe ("Hello", "World", "World")
+      (("Hello", "World", 42) third fab) shouldBe (("Hello", "World", "World"))
     }
 
     "strip type arguments from ops" in {
       import Function1Strong._
-      (fab.first[String] apply (42 -> "Hello")) shouldBe ("World", "Hello")
+      (fab.first[String] apply (42 -> "Hello")) shouldBe (("World", "Hello"))
     }
 
     "support using ops from unrelated type classes in the same scope" in {
@@ -194,8 +194,8 @@ class Examples extends WordSpec with Matchers {
       }
 
       implicit val intInstance: Equal[Int] with Semigroup[Int] = new Equal[Int] with Semigroup[Int] {
-        def equal(x: Int, y: Int) = x == y
-        def append(x: Int, y: Int) = x + y
+        def equal(x: Int, y: Int): Boolean = x == y
+        def append(x: Int, y: Int): Int = x + y
         def id: Int = 0
       }
 
