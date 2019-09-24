@@ -26,7 +26,7 @@ lazy val nativeCommonSettings = Def.settings(
 )
 
 lazy val commonSettings = Seq(
-  organization := "com.github.mpilquist",
+  organization := "org.typelevel",
   scalacOptions ++= Seq(
     "-deprecation",
     "-feature",
