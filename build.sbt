@@ -5,21 +5,9 @@ import ReleaseTransformations._
 
 val Scala211 = "2.11.12"
 
-def ifAtLeast(scalaBinaryVersion: String, atLeastVersion: String)(options: String*): Seq[String] = {
-  case class ScalaBinaryVersion(major: Int, minor: Int) extends Ordered[ScalaBinaryVersion] {
-    def compare(that: ScalaBinaryVersion) = Ordering[(Int, Int)].compare((this.major, this.minor), (that.major, that.minor))
-  }
-  val Pattern = """(\d+)\.(\d+).*""".r
-  def getScalaBinaryVersion(v: String) = v match { case Pattern(major, minor) => ScalaBinaryVersion(major.toInt, minor.toInt) }
-  if (getScalaBinaryVersion(scalaBinaryVersion) >= getScalaBinaryVersion(atLeastVersion)) options
-  else Seq.empty
-}
-
-lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.1.0-SNAP13" % "test")
+val scalatestVersion = "3.1.0-RC3"
 
 lazy val nativeCommonSettings = Def.settings(
-  // https://github.com/scalatest/scalatest/issues/1112#issuecomment-366856502
-  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.2.0-SNAP10" % "test",
   scalaVersion := Scala211,
   crossScalaVersions := Seq(Scala211),
   nativeLinkStubs := true
@@ -145,14 +133,12 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
   .settings(
     libraryDependencies ++= Seq(
       "org.scala-lang" % "scala-reflect" % scalaVersion.value % "provided",
-      "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided"
+      "org.scala-lang" % "scala-compiler" % scalaVersion.value % "provided",
+      "org.scalatest" %%% "scalatest" % scalatestVersion % "test"
     )
   )
   .nativeSettings(
     nativeCommonSettings
-  )
-  .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies += scalatest.value
   )
   .platformsSettings(JSPlatform, NativePlatform)(
     excludeFilter in (Test, unmanagedSources) := "jvm.scala"
@@ -171,9 +157,11 @@ lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossT
   .dependsOn(core % "provided")
   .settings(commonSettings: _*)
   .settings(moduleName := "simulacrum-examples")
+  .settings(
+    libraryDependencies += "org.scalatest" %%% "scalatest" % scalatestVersion % "test"
+  )
   .settings(noPublishSettings: _*)
   .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies += scalatest.value,
     libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.3" % "test"
   )
   .nativeSettings(
@@ -189,4 +177,3 @@ lazy val noPublishSettings = Seq(
   publishLocal := {},
   publishArtifact := false
 )
-
