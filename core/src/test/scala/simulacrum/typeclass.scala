@@ -1,6 +1,7 @@
 package simulacrum
 
-import org.scalatest.{ WordSpec, Matchers }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
 // NB: These imports are because the tests are compiled with `-Yno-imports`, to
 //     ensure that simulacrum works in projects that use that flag.
@@ -45,7 +46,7 @@ object Functor {
   }
 }
 
-class TypeClassTest extends WordSpec with Matchers {
+class TypeClassTest extends AnyWordSpec with Matchers {
 
   "the @typeclass annotation" should {
 
@@ -482,9 +483,9 @@ class TypeClassTest extends WordSpec with Matchers {
       val b = Mutable[List].toMutable(List(1,2,3))
       val j: mutable.ListBuffer[Int] = b  // The compiler should know b has type mutable.ListBuffer[Int]
     }
-    
+
     "support lots of dependent types" in {
-      @typeclass trait Foo[P] { 
+      @typeclass trait Foo[P] {
         type A
         type B
         type C
@@ -492,12 +493,12 @@ class TypeClassTest extends WordSpec with Matchers {
         def a(p: P): A
         def b(p: P): B
         def c(p: P): C
-        def make[X,Y,Z](x: X, y: Y, z: Z): F[X,Y,Z] 
+        def make[X,Y,Z](x: X, y: Y, z: Z): F[X,Y,Z]
       }
-      
+
       object Foo {
         type Aux[P,A0,B0,C0,F0[_,_,_]] = Foo[P] { type A=A0; type B=B0; type C=C0; type F[x,y,z] = F0[x,y,z] }
-      
+
         implicit def foo[A0,B0,C0]: Foo.Aux[(A0,B0,C0),A0,B0,C0,scala.Tuple3] = new Foo[(A0,B0,C0)] {
           type A = A0
           type B = B0
@@ -509,11 +510,11 @@ class TypeClassTest extends WordSpec with Matchers {
           def make[X,Y,Z](x: X, y: Y, z: Z) = (x,y,z)
         }
       }
-      
+
       import Foo.ops._
-      
+
       val tuple: (Int,String,Option[Int]) = Foo[(Int,Int,Int)].make(1,"a",Some(2))
-      
+
       val a: Int = tuple.a
       val b: String = tuple.b
       val c: Option[Int] = tuple.c
