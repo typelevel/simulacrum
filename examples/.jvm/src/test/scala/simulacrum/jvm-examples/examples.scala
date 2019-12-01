@@ -3,9 +3,10 @@ package simulacrum.jvmexamples
 import simulacrum._
 import shapeless.test.illTyped
 
-import org.scalatest.{ WordSpec, Matchers }
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class Examples extends WordSpec with Matchers {
+class Examples extends AnyWordSpec with Matchers {
 
   "the @typeclass annotation" should {
 
