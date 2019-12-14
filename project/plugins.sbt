@@ -4,7 +4,7 @@ val scalaNativeVersion =
   Option(System.getenv("SCALANATIVE_VERSION")).getOrElse("0.3.9")
 
 addSbtPlugin("com.github.gseitz" % "sbt-release" % "1.0.12")
-addSbtPlugin("io.crashbox" % "sbt-gpg" % "0.2.0")
+addSbtPlugin("io.crashbox" % "sbt-gpg" % "0.2.1")
 addSbtPlugin("org.scala-js" % "sbt-scalajs"  % scalaJSVersion)
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.6.1")
 addSbtPlugin("org.wartremover" % "sbt-wartremover" % "2.4.3")
