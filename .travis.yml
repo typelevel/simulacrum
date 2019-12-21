@@ -31,10 +31,3 @@ matrix:
     - curl https://raw.githubusercontent.com/scala-native/scala-native/cddb41c2ded4da4/scripts/travis_setup.sh | bash -x
     script:
     - sbt coreNative/test examplesNative/test
-  - sudo: required
-    scala: SCALA_NATIVE
-    env: SCALANATIVE_VERSION="0.4.0-M2"
-    before_install:
-    - curl https://raw.githubusercontent.com/scala-native/scala-native/cddb41c2ded4da4/scripts/travis_setup.sh | bash -x
-    script:
-    - sbt coreNative/test examplesNative/test
