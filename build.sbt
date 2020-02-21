@@ -5,7 +5,7 @@ import ReleaseTransformations._
 
 val Scala211 = "2.11.12"
 
-val scalatestVersion = "3.1.0"
+val scalatestVersion = "3.1.1"
 
 lazy val nativeCommonSettings = Def.settings(
   scalaVersion := Scala211,
