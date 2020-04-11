@@ -426,6 +426,7 @@ class TypeClassMacros(val c: Context) {
       val companion = q"""
         $mods object $name extends ..$bases {
           ..$body
+          import _root_.scala.language.implicitConversions
           $summoner
           ..$opsMembers
         }
