@@ -1,13 +1,14 @@
 package simulacrum
 
-import org.scalatest.{ WordSpec, Matchers }
 
 // NB: These imports are because the tests are compiled with `-Yno-imports`, to
 //     ensure that simulacrum works in projects that use that flag.
 import scala.Int
 import scala.collection.immutable.List
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class JvmTypeClassTest extends WordSpec with Matchers {
+class JvmTypeClassTest extends AnyWordSpec with Matchers {
   "the @typeclass annotation" should {
     "generate serializable traits by default" in {
       serializeDeserialize(Semigroup[Int]).append(1, 2) shouldBe 3
