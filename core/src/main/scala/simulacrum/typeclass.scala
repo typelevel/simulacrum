@@ -419,7 +419,7 @@ class TypeClassMacros(val c: Context) {
       val opsMembers: List[Tree] = {
         val ops = List(opsTrait, toOpsTrait, nonInheritedOpsConversion)
         val allOps = if (typeClassArguments.generateAllOps) List(allOpsTrait, allOpsConversion) else Nil
-        ops ++ allOps
+        allOps ++ ops
       }
 
       val q"$mods object $name extends ..$bases { ..$body }" = comp
