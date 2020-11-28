@@ -4,6 +4,28 @@ import sbtcrossproject.{crossProject, CrossType}
 import ReleaseTransformations._
 
 val Scala211 = "2.11.12"
+val NativeCond = s"matrix.scala == '$Scala211'"
+
+ThisBuild / crossScalaVersions := Seq(Scala211, "2.12.12", "2.13.4")
+ThisBuild / scalaVersion := Scala211
+
+ThisBuild / githubWorkflowPublishTargetBranches := Seq()
+
+ThisBuild / githubWorkflowBuildPreamble +=
+  WorkflowStep.Run(
+    List("sudo apt install clang libunwind-dev libgc-dev libre2-dev"),
+    name = Some("Setup scala native dependencies"),
+    cond = Some(NativeCond))
+
+ThisBuild / githubWorkflowBuild := Seq(
+  WorkflowStep.Sbt(
+    List("test", "test:doc", "mimaReportBinaryIssues"),
+    name = Some("Run main build")),
+
+  WorkflowStep.Sbt(
+    List("coreNative/test", "examplesNative/test"),
+    name = Some("Run native build"),
+    cond = Some(NativeCond)))
 
 val scalatestVersion = "3.2.2"
 
@@ -32,8 +54,6 @@ lazy val commonSettings = Seq(
   scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
-  scalaVersion := Scala211,
-  crossScalaVersions := Seq(Scala211, "2.12.11", "2.13.2"),
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -108,6 +128,7 @@ lazy val commonSettings = Seq(
 
 lazy val root = project.in(file("."))
   .settings(commonSettings: _*)
+  .settings(crossScalaVersions := Seq(Scala211))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
