@@ -27,7 +27,7 @@ ThisBuild / githubWorkflowBuild := Seq(
     name = Some("Run native build"),
     cond = Some(NativeCond)))
 
-val scalatestVersion = "3.2.2"
+val scalatestVersion = "3.2.4"
 
 lazy val nativeCommonSettings = Def.settings(
   scalaVersion := Scala211,
