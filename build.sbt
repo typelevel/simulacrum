@@ -1,6 +1,7 @@
 import sbtrelease._
 import com.typesafe.tools.mima.core._
-import sbtcrossproject.{crossProject, CrossType}
+import sbtcrossproject.CrossPlugin.autoImport.crossProject
+import sbtcrossproject.CrossType
 import ReleaseTransformations._
 
 val Scala211 = "2.11.12"
@@ -51,9 +52,9 @@ lazy val commonSettings = Seq(
         Nil
     }
   },
-  scalacOptions in (Compile, doc) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
-  scalacOptions in (Compile, console) ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
-  scalacOptions in (Test, console) := (scalacOptions in (Compile, console)).value,
+  Compile / doc / scalacOptions ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
+  Compile / console / scalacOptions ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
+  Test / console / scalacOptions := (scalacOptions in (Compile, console)).value,
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -121,7 +122,7 @@ lazy val commonSettings = Seq(
     commitNextVersion,
     pushChanges
   ),
-  wartremoverErrors in (Test, compile) ++= Seq(
+  Test / compile / wartremoverErrors ++= Seq(
     Wart.ExplicitImplicitTypes,
     Wart.ImplicitConversion)
 )
@@ -132,7 +133,7 @@ lazy val root = project.in(file("."))
   .settings(noPublishSettings: _*)
   .aggregate(coreJVM, examplesJVM, coreJS, examplesJS)
 
-mimaFailOnNoPrevious in ThisBuild := false
+ThisBuild / mimaFailOnNoPrevious := false
 
 def previousVersion(scalaVersion: String, currentVersion: String): Option[String] = {
   if (scalaVersion == "2.13.0")
@@ -149,7 +150,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
   .settings(commonSettings: _*)
   .settings(
     moduleName := "simulacrum",
-    scalacOptions in (Test) += "-Yno-imports"
+    Test / scalacOptions += "-Yno-imports"
   )
   .settings(
     libraryDependencies ++= Seq(
@@ -162,7 +163,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossType(
     nativeCommonSettings
   )
   .platformsSettings(JSPlatform, NativePlatform)(
-    excludeFilter in (Test, unmanagedSources) := "jvm.scala"
+    Test / unmanagedSources / excludeFilter := "jvm.scala"
   )
   .jvmSettings(
     mimaPreviousArtifacts := previousVersion(scalaVersion.value, version.value).map { pv =>
