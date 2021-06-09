@@ -7,7 +7,7 @@ import ReleaseTransformations._
 val Scala211 = "2.11.12"
 val NativeCond = s"matrix.scala == '$Scala211'"
 
-ThisBuild / crossScalaVersions := Seq(Scala211, "2.12.12", "2.13.5")
+ThisBuild / crossScalaVersions := Seq(Scala211, "2.12.13", "2.13.5")
 ThisBuild / scalaVersion := Scala211
 
 ThisBuild / githubWorkflowPublishTargetBranches := Seq()
@@ -28,7 +28,7 @@ ThisBuild / githubWorkflowBuild := Seq(
     name = Some("Run native build"),
     cond = Some(NativeCond)))
 
-val scalatestVersion = "3.2.4"
+val scalatestVersion = "3.2.9"
 
 lazy val nativeCommonSettings = Def.settings(
   scalaVersion := Scala211,
@@ -184,7 +184,7 @@ lazy val examples = crossProject(JSPlatform, JVMPlatform, NativePlatform).crossT
   )
   .settings(noPublishSettings: _*)
   .platformsSettings(JVMPlatform, JSPlatform)(
-    libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.3" % "test"
+    libraryDependencies += "com.chuusai" %%% "shapeless" % "2.3.7" % "test"
   )
   .nativeSettings(
     nativeCommonSettings
