@@ -54,7 +54,7 @@ lazy val commonSettings = Seq(
   },
   Compile / doc / scalacOptions ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
   Compile / console / scalacOptions ~= { _ filterNot { o => o == "-Ywarn-unused-import" || o == "-Xfatal-warnings" } },
-  Test / console / scalacOptions := (scalacOptions in (Compile, console)).value,
+  Test / console / scalacOptions := (Compile / console / scalacOptions).value,
   resolvers ++= Seq(
     Resolver.sonatypeRepo("releases"),
     Resolver.sonatypeRepo("snapshots")
@@ -80,7 +80,7 @@ lazy val commonSettings = Seq(
       Some("releases" at nexus + "service/local/staging/deploy/maven2")
   },
   publishMavenStyle := true,
-  publishArtifact in Test := false,
+  Test / publishArtifact := false,
   pomIncludeRepository := { x => false },
   pomExtra := (
     <url>http://github.com/mpilquist/simulacrum</url>
@@ -96,7 +96,7 @@ lazy val commonSettings = Seq(
       </developer>
     </developers>
   ),
-  pomPostProcess := { (node) =>
+  pomPostProcess := { node =>
     import scala.xml._
     import scala.xml.transform._
     def stripIf(f: Node => Boolean) = new RewriteRule {
