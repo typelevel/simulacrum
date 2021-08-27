@@ -147,7 +147,7 @@ Note that the second approach will not include the `map` operation of its grandp
 This project supports Scala 2.11, 2.12, and 2.13. The project is based on macro paradise. To use the project, add the following to your build.sbt:
 
 ```scala
-libraryDependencies += "org.typelevel" %% "simulacrum" % "1.0.0"
+libraryDependencies += "org.typelevel" %% "simulacrum" % "1.0.1"
 
 // For Scala 2.11-2.12
 addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full)
