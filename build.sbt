@@ -7,7 +7,7 @@ import ReleaseTransformations._
 val Scala211 = "2.11.12"
 val NativeCond = s"matrix.scala == '$Scala211'"
 
-ThisBuild / crossScalaVersions := Seq(Scala211, "2.12.13", "2.13.5")
+ThisBuild / crossScalaVersions := Seq(Scala211, "2.12.15", "2.13.5")
 ThisBuild / scalaVersion := Scala211
 
 ThisBuild / githubWorkflowPublishTargetBranches := Seq()
