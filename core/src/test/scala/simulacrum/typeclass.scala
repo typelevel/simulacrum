@@ -146,7 +146,7 @@ class TypeClassTest extends AnyWordSpec with Matchers {
 
         implicit val sumVargs: Vargs[Sum] = new Vargs[Sum] {
           def fold[T2](x: Sum, ys: T2*)(f: (Sum, T2) => Sum): Sum =
-            ys.foldLeft(x) { (ds, t2) => info("folding " + t2); f(ds, t2) }
+            ys.foldLeft(x) { (ds, t2) => f(ds, t2) }
         }
 
         import Vargs.ops._
