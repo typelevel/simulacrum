@@ -134,6 +134,30 @@ class TypeClassTest extends AnyWordSpec with Matchers {
         1 ~ 2 shouldBe 3
       }
 
+      "supports varargs in adapted methods" in {
+
+        @typeclass trait Vargs[T] {
+          @op("/:", true) def fold[T2](x: T, y: T2*)(f: (T, T2) => T): T
+        }
+
+        case class Sum(total: Int = 0) {
+          def add(operand: Int): Sum = Sum(total + operand)
+        }
+
+        implicit val sumVargs: Vargs[Sum] = new Vargs[Sum] {
+          def fold[T2](x: Sum, ys: T2*)(f: (Sum, T2) => Sum): Sum =
+            ys.foldLeft(x) { (ds, t2) => info("folding " + t2); f(ds, t2) }
+        }
+
+        import Vargs.ops._
+
+        val sum = Sum()
+        val ops = List(1, 2, 3, 4)
+
+        sum.fold(ops: _*) { _ add _ } shouldBe Sum(10)
+        sum./: ((ops ::: ops): _*) { _ add _ } shouldBe Sum(20)
+      }
+
       "supports suppression of adapter methods" in {
         @typeclass trait Sg[A] {
           @noop def append(x: A, y: A): A
